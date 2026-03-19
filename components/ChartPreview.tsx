@@ -686,13 +686,25 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
   };
 
   useEffect(() => {
-    if (typeof p5 === 'undefined' || !containerRef.current) return;
+    if (!containerRef.current) return;
     if (p5InstanceRef.current) { p5InstanceRef.current.remove(); p5InstanceRef.current = null; }
-    const sketch = (p: any) => {
-      p.setup = () => { const { width, height } = getCanvasDimensions(settingsRef.current); p.createCanvas(width, height); p.pixelDensity(1); p.noLoop(); };
-      p.draw = () => { drawChart(p, settingsRef.current); };
+
+    const initP5 = () => {
+      if (typeof p5 === 'undefined' || !containerRef.current) return;
+      const sketch = (p: any) => {
+        p.setup = () => { const { width, height } = getCanvasDimensions(settingsRef.current); p.createCanvas(width, height); p.pixelDensity(1); p.noLoop(); };
+        p.draw = () => { drawChart(p, settingsRef.current); };
+      };
+      try { p5InstanceRef.current = new p5(sketch, containerRef.current); } catch (e) { console.error("p5 Init Error:", e); }
     };
-    try { p5InstanceRef.current = new p5(sketch, containerRef.current); } catch (e) { console.error("p5 Init Error:", e); }
+
+    Promise.all([
+      document.fonts.load('normal 16px "Basel Grotesk"'),
+      document.fonts.load('normal 16px "Basel Grotesk Mono"'),
+      document.fonts.load('bold 16px "Basel Grotesk Mono"'),
+      document.fonts.load('500 16px "Basel Classic"'),
+    ]).then(initP5).catch(initP5);
+
     return () => { if (p5InstanceRef.current) { p5InstanceRef.current.remove(); p5InstanceRef.current = null; } };
   }, [settings.canvasType, settings.chartType]);
 
