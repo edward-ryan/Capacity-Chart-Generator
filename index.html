@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BrandChart Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              mono: ['"Fragment Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js" crossorigin="anonymous"></script>
     <!-- p5.js-svg 1.5.1 is stable with p5.js 1.9.x -->
     <script src="https://unpkg.com/p5.js-svg@1.5.1/dist/p5.js-svg.js" crossorigin="anonymous"></script>
@@ -12,7 +23,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fragment+Mono&family=Gothic+A1:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         @font-face {
@@ -43,13 +54,12 @@
             margin: 0;
             padding: 0;
             overflow-x: hidden;
-            background-color: #f8f9fa;
+            background-color: #0f0f12;
             font-family: 'Basel Grotesk', 'Gothic A1', sans-serif;
         }
         canvas, svg {
             display: block;
         }
-        /* Custom scrollbar for a cleaner Material look */
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -57,11 +67,11 @@
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: #e5e7eb;
+            background: #3f3f46;
             border-radius: 10px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #d1d5db;
+            background: #52525b;
         }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
