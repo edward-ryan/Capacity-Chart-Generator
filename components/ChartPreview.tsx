@@ -627,17 +627,93 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     } catch (e) { console.error("Draw Loop Error:", e); }
   };
 
-  const generateSvgContent = (): Promise<string> => {
+  // Spins up a hidden p5 instance with the p5.js-svg renderer, draws the chart,
+  // then serializes the live <svg> DOM element to a string.
+  const generateSvgString = (): Promise<string> => {
     return new Promise((resolve) => {
-      if (!p5InstanceRef.current) { resolve(""); return; }
-      const canvas = p5InstanceRef.current.canvas as HTMLCanvasElement;
       const { width, height } = getCanvasDimensions(settingsRef.current);
-      const dataUrl = canvas.toDataURL('image/png');
-      const svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <image width="${width}" height="${height}" xlink:href="${dataUrl}"/>
-</svg>`;
-      resolve(svg);
+      const hiddenDiv = document.createElement('div');
+      hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
+      document.body.appendChild(hiddenDiv);
+
+      const cleanup = (inst: any) => {
+        try { inst.remove(); } catch (_) {}
+        if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+      };
+
+      new p5((p: any) => {
+        p.setup = () => {
+          // p5.js-svg adds SVG to p5.prototype, so p.SVG should be defined;
+          // fall back to the global p5.SVG or the string 'svg' if needed.
+          const svgRenderer = p.SVG ?? (window as any).p5?.SVG ?? 'svg';
+          p.createCanvas(width, height, svgRenderer);
+          p.noLoop();
+        };
+        p.draw = () => {
+          drawChart(p, settingsRef.current);
+          // Small delay to ensure the SVG DOM has fully flushed all draw calls.
+          setTimeout(() => {
+            try {
+              // p._renderer.elt is the live <svg> element created by p5.js-svg.
+              const svgEl = p._renderer?.elt as SVGSVGElement | undefined;
+              if (!svgEl || svgEl.tagName.toUpperCase() !== 'SVG') {
+                cleanup(p); resolve(''); return;
+              }
+              let svgStr = new XMLSerializer().serializeToString(svgEl);
+              if (!svgStr.includes('xmlns="http://www.w3.org/2000/svg"')) {
+                svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+              }
+              if (!svgStr.includes('xmlns:xlink')) {
+                svgStr = svgStr.replace('<svg', '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+              }
+              resolve(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${svgStr}`);
+            } catch (e) {
+              console.error('SVG serialization failed:', e);
+              resolve('');
+            } finally {
+              cleanup(p);
+            }
+          }, 200);
+        };
+      }, hiddenDiv);
+    });
+  };
+
+  // For direct SVG download: tries generateSvgString first, then falls back to
+  // p.save() which p5.js-svg natively intercepts to trigger the browser download.
+  const downloadSvgDirect = (filename: string): Promise<void> => {
+    return generateSvgString().then((svgStr) => {
+      if (svgStr) {
+        const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `${filename}.svg`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        return;
+      }
+      // Fallback: let p5.js-svg handle the download via p.save()
+      const { width, height } = getCanvasDimensions(settingsRef.current);
+      const hiddenDiv = document.createElement('div');
+      hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
+      document.body.appendChild(hiddenDiv);
+      new p5((p: any) => {
+        p.setup = () => {
+          const svgRenderer = p.SVG ?? (window as any).p5?.SVG ?? 'svg';
+          p.createCanvas(width, height, svgRenderer);
+          p.noLoop();
+        };
+        p.draw = () => {
+          drawChart(p, settingsRef.current);
+          setTimeout(() => {
+            p.save(`${filename}.svg`);
+            setTimeout(() => {
+              try { p.remove(); } catch (_) {}
+              if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+            }, 500);
+          }, 100);
+        };
+      }, hiddenDiv);
     });
   };
 
@@ -679,7 +755,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           if (pngBlob) zip.file(`${filename}.png`, pngBlob);
         }
 
-        const svgContent = await generateSvgContent();
+        const svgContent = await generateSvgString();
         if (svgContent) zip.file(`${filename}.svg`, svgContent);
 
         const content = await zip.generateAsync({ type: "blob" });
@@ -689,15 +765,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         document.body.appendChild(link); link.click();
         document.body.removeChild(link); URL.revokeObjectURL(url);
       } else if (format === 'svg') {
-        const content = await generateSvgContent();
-        if (content) {
-          const blob = new Blob([content], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url; link.download = `${filename}.svg`;
-          document.body.appendChild(link); link.click();
-          document.body.removeChild(link); URL.revokeObjectURL(url);
-        }
+        await downloadSvgDirect(filename);
       } else {
         if (p5InstanceRef.current) p5InstanceRef.current.saveCanvas(filename, 'png');
       }
