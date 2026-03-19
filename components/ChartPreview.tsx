@@ -655,9 +655,11 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         new p5((p: any) => {
           p.setup = () => {
             p.createCanvas(width, height, p.SVG);
-            p.noLoop();
+            // Do NOT call p.noLoop() here — in p5 1.9, noLoop() in setup()
+            // sets _loop=false before the first RAF fires, so draw() never runs.
           };
           p.draw = () => {
+            p.noLoop(); // stop after this one draw
             drawChart(p, settingsRef.current);
             setTimeout(() => {
               clearTimeout(guard);
@@ -700,9 +702,10 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     new p5((p: any) => {
       p.setup = () => {
         p.createCanvas(width, height, p.SVG);
-        p.noLoop();
+        // Do NOT call p.noLoop() here — see generateSvgString for explanation.
       };
       p.draw = () => {
+        p.noLoop(); // stop after this one draw
         drawChart(p, settingsRef.current);
         setTimeout(() => {
           try {
