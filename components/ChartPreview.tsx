@@ -377,7 +377,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     if (cur.showTitle && cur.title) {
       p.fill(fg);
       p.noStroke();
-      p.textFont('Basel Grotesk');
+      p.textFont('Basel Classic');
       p.textStyle(p.BOLD);
       p.textSize(titleSize);
       p.textAlign(p.LEFT, p.TOP);
