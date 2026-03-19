@@ -215,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
         </div>
 
         {/* Design Elements */}
-        <div className="bg-[#202023] border border-[#2e2e33] rounded-md overflow-hidden">
+        <div className="bg-[#202023] border border-[#2e2e33] rounded-md">
           <CollapsibleHeader label="Design Elements" isCollapsed={collapsed.design} onToggle={() => toggleSection('design')} />
           {!collapsed.design && (
             <div className="p-3 space-y-4 animate-in fade-in duration-200">
