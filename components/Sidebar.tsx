@@ -1,0 +1,444 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { ChartSettings, ChartDataRow } from '../types';
+import { EyeIcon } from '../App';
+
+interface SidebarProps {
+  settings: ChartSettings;
+  onUpdate: (settings: Partial<ChartSettings>) => void;
+  onDownload: (format: 'png' | 'svg' | 'zip') => void;
+}
+
+interface CollapsibleHeaderProps {
+  label: string;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({ label, isCollapsed, onToggle }) => (
+  <button 
+    onClick={onToggle}
+    className="flex items-center justify-between w-full group mb-2"
+  >
+    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer group-hover:text-black transition-colors">
+      {label}
+    </label>
+    <span className={`material-symbols-outlined !text-[18px] text-gray-400 group-hover:text-black transition-transform duration-200 ${isCollapsed ? '-rotate-90' : 'rotate-0'}`}>
+      expand_more
+    </span>
+  </button>
+);
+
+export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const sourceInputRef = useRef<HTMLInputElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  
+  const [collapsed, setCollapsed] = useState({
+    design: false,
+    axes: true,
+    data: false
+  });
+
+  const toggleSection = (section: keyof typeof collapsed) => {
+    setCollapsed(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(event.target as Node)) {
+        setIsPaletteOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleAddRow = () => {
+    if (settings.chartType === 'donut') return;
+    const newData = [...settings.data, { label: `Value ${settings.data.length + 1}`, value: 0 }];
+    onUpdate({ data: newData });
+  };
+
+  const handleRemoveRow = (index: number) => {
+    if (settings.chartType === 'donut') return;
+    const newData = settings.data.filter((_, i) => i !== index);
+    let newHighlight = settings.highlightedIndex;
+    if (settings.highlightedIndex === index) {
+      newHighlight = -1;
+    } else if (settings.highlightedIndex !== undefined && settings.highlightedIndex > index) {
+      newHighlight = settings.highlightedIndex - 1;
+    }
+    onUpdate({ data: newData, highlightedIndex: newHighlight });
+  };
+
+  const handleRowChange = (index: number, field: keyof ChartDataRow, value: string | number) => {
+    const newData = [...settings.data];
+    let finalValue = value;
+    if (field === 'value') {
+      const parsed = typeof value === 'string' ? parseFloat(value) : value;
+      finalValue = isNaN(parsed) ? 0 : Math.max(0, parsed);
+      
+      if (settings.chartType === 'donut' || settings.chartType === 'stacked') {
+        finalValue = Math.min(100, finalValue as number);
+        
+        if (settings.chartType === 'stacked') {
+          const currentSum = newData.reduce((sum, item, i) => i === index ? sum : sum + item.value, 0);
+          if (currentSum + (finalValue as number) > 100) {
+            finalValue = Math.max(0, 100 - currentSum);
+          }
+        }
+
+        newData[index] = { ...newData[index], [field]: finalValue as number };
+        onUpdate({ data: newData });
+        return;
+      }
+    }
+    newData[index] = { ...newData[index], [field]: finalValue as any };
+    onUpdate({ data: newData });
+  };
+
+  const toggleHighlight = (index: number) => {
+    onUpdate({ highlightedIndex: settings.highlightedIndex === index ? -1 : index });
+  };
+
+  const toggleHighlightColor = () => {
+    onUpdate({ useHighlightColor: !settings.useHighlightColor });
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (settings.chartType === 'donut') return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n');
+      const parsedData: ChartDataRow[] = [];
+      lines.forEach((line) => {
+        const parts = line.split(',');
+        if (parts.length >= 2) {
+          const label = parts[0].trim();
+          const value = parseFloat(parts[1].trim());
+          if (!isNaN(value)) parsedData.push({ label, value: Math.max(0, value) });
+        }
+      });
+      if (parsedData.length > 0) {
+        if (settings.chartType === 'stacked') {
+          let runningSum = 0;
+          const cappedData = parsedData.map(item => {
+            const remaining = Math.max(0, 100 - runningSum);
+            const val = Math.min(item.value, remaining);
+            runningSum += val;
+            return { ...item, value: val };
+          });
+          onUpdate({ data: cappedData, highlightedIndex: -1 });
+        } else {
+          onUpdate({ data: parsedData, highlightedIndex: -1 });
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
+  };
+
+  const handleSourceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.chartType === 'donut' && json.data && json.data.length > 1) {
+          json.data = [json.data[0]];
+        }
+        if (json.chartType === 'stacked' && json.data) {
+          let runningSum = 0;
+          json.data = json.data.map((item: any) => {
+            const remaining = Math.max(0, 100 - runningSum);
+            const val = Math.min(item.value, remaining);
+            runningSum += val;
+            return { ...item, value: val };
+          });
+        }
+        onUpdate(json);
+      } catch (err) {
+        alert("Invalid source file format.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
+  };
+
+  const densityLabels = ["Less", "Medium", "More"];
+  const lightPalettes = [
+    { bg: '#FFFFFF', fg: '#000000' },
+    { bg: '#FFFFFF', fg: '#130831' },
+    { bg: '#C1BBD8', fg: '#000000' },
+    { bg: '#C1BBD8', fg: '#130831' },
+    { bg: '#E9FF70', fg: '#000000' },
+  ];
+  const darkPalettes = [
+    { bg: '#000000', fg: '#FFFFFF' },
+    { bg: '#130831', fg: '#FFFFFF' },
+    { bg: '#000000', fg: '#C1BBD8' },
+    { bg: '#130831', fg: '#C1BBD8' },
+    { bg: '#E6194D', fg: '#FFFFFF' },
+    { bg: '#0D63F8', fg: '#FFFFFF' },
+  ];
+  const allPalettes = [...lightPalettes, ...darkPalettes];
+  const currentPalette = allPalettes.find(p => p.bg === settings.backgroundColor && p.fg === settings.contentColor) || allPalettes[0];
+
+  return (
+    <div className="w-full md:w-96 bg-white shadow-xl border-r border-gray-200 flex flex-col h-full z-10 overflow-hidden font-sans">
+      <div className="p-6 bg-white border-b border-gray-100 z-20">
+        <h1 className="text-xl font-bold tracking-tight mb-1 uppercase text-black">Capacity</h1>
+        <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Chart Generator</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="text-[11px] text-gray-500 leading-relaxed border-b border-gray-100 pb-4">
+          {settings.chartType === 'bar' && (
+            <p>The <b>varied width bar chart</b> compares multiple categories. To emphasize a bar, star it in the "Chart Data" section to make it wider.</p>
+          )}
+          {settings.chartType === 'donut' && (
+            <p>The <b>donut chart</b> displays a single percentage metric out of 100%.</p>
+          )}
+          {settings.chartType === 'stacked' && (
+            <p>The <b>horizontal bar chart</b> stacks to display the proportion of multiple categories that add up to 100%.</p>
+          )}
+        </div>
+
+        <section className="space-y-4">
+          <CollapsibleHeader label="Design Elements" isCollapsed={collapsed.design} onToggle={() => toggleSection('design')} />
+          {!collapsed.design && (
+            <div className="space-y-5 bg-gray-50 p-4 rounded-xl animate-in fade-in duration-200">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chart Title</label>
+                  <EyeIcon active={settings.showTitle} onClick={() => onUpdate({ showTitle: !settings.showTitle })} />
+                </div>
+                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-sm uppercase resize-none font-sans" value={settings.title} onChange={(e) => onUpdate({ title: e.target.value })} />
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chart Caption</label>
+                  <EyeIcon active={settings.showCaption} onClick={() => onUpdate({ showCaption: !settings.showCaption })} />
+                </div>
+                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-sm resize-none font-sans" value={settings.caption} onChange={(e) => onUpdate({ caption: e.target.value })} />
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</label>
+                  <EyeIcon active={settings.showSource} onClick={() => onUpdate({ showSource: !settings.showSource })} />
+                </div>
+                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-xs resize-none font-sans" value={settings.source} onChange={(e) => onUpdate({ source: e.target.value })} />
+              </div>
+
+              {settings.chartType === 'donut' && (
+                <div className="space-y-4 pt-2 border-t border-gray-200">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Inner Radius: <span className="text-black">{settings.innerRadius}</span></label>
+                    <input type="range" min="50" max="600" step="10" className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" value={settings.innerRadius || 300} onChange={(e) => onUpdate({ innerRadius: parseInt(e.target.value) })} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Outer Radius: <span className="text-black">{settings.outerRadius}</span></label>
+                    <input type="range" min="100" max="700" step="10" className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" value={settings.outerRadius || 500} onChange={(e) => onUpdate({ outerRadius: parseInt(e.target.value) })} />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2 relative" ref={paletteRef}>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">Color Palette</label>
+                <button onClick={() => setIsPaletteOpen(!isPaletteOpen)} className="w-full h-10 rounded border border-gray-200 bg-white transition-all flex overflow-hidden items-center group relative shadow-sm hover:border-gray-400 active:scale-[0.99]">
+                  <div className="w-[70%] h-full" style={{ backgroundColor: currentPalette.bg }} />
+                  <div className="w-[30%] h-full border-l border-gray-100" style={{ backgroundColor: currentPalette.fg }} />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <span className={`material-symbols-outlined !text-[16px] transition-transform duration-200 ${isPaletteOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                  </div>
+                </button>
+                {isPaletteOpen && (
+                  <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200 space-y-4">
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Light Palette</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {lightPalettes.map((p, idx) => (
+                          <button key={`light-${idx}`} onClick={() => { onUpdate({ backgroundColor: p.bg, contentColor: p.fg }); setIsPaletteOpen(false); }} className={`h-12 rounded border transition-all flex overflow-hidden ${settings.backgroundColor === p.bg && settings.contentColor === p.fg ? 'ring-2 ring-black border-transparent scale-[0.98]' : 'border-gray-100 hover:border-gray-400'}`}>
+                            <div className="w-[70%] h-full" style={{ backgroundColor: p.bg }} />
+                            <div className="w-[30%] h-full border-l border-gray-100" style={{ backgroundColor: p.fg }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Dark Palette</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {darkPalettes.map((p, idx) => (
+                          <button key={`dark-${idx}`} onClick={() => { onUpdate({ backgroundColor: p.bg, contentColor: p.fg }); setIsPaletteOpen(false); }} className={`h-12 rounded border transition-all flex overflow-hidden ${settings.backgroundColor === p.bg && settings.contentColor === p.fg ? 'ring-2 ring-black border-transparent scale-[0.98]' : 'border-gray-100 hover:border-gray-400'}`}>
+                            <div className="w-[70%] h-full" style={{ backgroundColor: p.bg }} />
+                            <div className="w-[30%] h-full border-l border-gray-100" style={{ backgroundColor: p.fg }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {settings.chartType === 'bar' && (
+          <section className="space-y-4 pt-4 border-t border-gray-100">
+            <CollapsibleHeader label="Axes & Labels" isCollapsed={collapsed.axes} onToggle={() => toggleSection('axes')} />
+            {!collapsed.axes && (
+              <div className="bg-gray-50 p-4 rounded-xl space-y-4 animate-in fade-in duration-200">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Y Axis Density: <span className="text-black">{densityLabels[settings.yAxisDensity]}</span></label>
+                  <input type="range" min="0" max="2" step="1" className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" value={settings.yAxisDensity} onChange={(e) => onUpdate({ yAxisDensity: parseInt(e.target.value) })} />
+                </div>
+                <div className="pt-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Y Numerical Labels</span>
+                    <EyeIcon active={settings.showYAxisLabels} onClick={() => onUpdate({ showYAxisLabels: !settings.showYAxisLabels })} />
+                  </div>
+                  <div className={`flex bg-white border border-gray-200 rounded p-1 transition-opacity ${!settings.showYAxisLabels ? 'opacity-50' : ''}`}>
+                    <button disabled={!settings.showYAxisLabels} onClick={() => onUpdate({ yAxisLabelMode: 'startEnd' })} className={`flex-1 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all rounded ${!settings.showYAxisLabels ? 'cursor-not-allowed' : ''} ${settings.yAxisLabelMode === 'startEnd' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-black'}`}>Start/End</button>
+                    <button disabled={!settings.showYAxisLabels} onClick={() => onUpdate({ yAxisLabelMode: 'continuous' })} className={`flex-1 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all rounded ${!settings.showYAxisLabels ? 'cursor-not-allowed' : ''} ${settings.yAxisLabelMode === 'continuous' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-black'}`}>Continuous</button>
+                  </div>
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Y Title</label>
+                    <EyeIcon active={settings.showYAxisTitle} onClick={() => onUpdate({ showYAxisTitle: !settings.showYAxisTitle })} />
+                  </div>
+                  <input type="text" className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-xs uppercase" value={settings.yAxisTitle} onChange={(e) => onUpdate({ yAxisTitle: e.target.value })} placeholder="Y AXIS LABEL" />
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Angled X-Labels</span>
+                  <EyeIcon active={settings.showAngledLabels && !settings.showXAxisLabel} onClick={() => { if (!settings.showXAxisLabel) onUpdate({ showAngledLabels: !settings.showAngledLabels }); }} />
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">X Title</label>
+                    <EyeIcon active={settings.showXAxisLabel} onClick={() => { const newShow = !settings.showXAxisLabel; onUpdate({ showXAxisLabel: newShow, ...(newShow ? { showAngledLabels: false } : {}) }); }} />
+                  </div>
+                  <input type="text" className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-xs uppercase" value={settings.xAxisLabel} onChange={(e) => onUpdate({ xAxisLabel: e.target.value })} placeholder="X AXIS LABEL" />
+                </div>
+                <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Bar Values</span>
+                  <EyeIcon active={settings.showBarValues} onClick={() => onUpdate({ showBarValues: !settings.showBarValues })} />
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        <section className="pt-4 border-t border-gray-100">
+          <CollapsibleHeader label="Chart Data" isCollapsed={collapsed.data} onToggle={() => toggleSection('data')} />
+          {!collapsed.data && (
+            <div className="animate-in fade-in duration-200">
+              {settings.chartType === 'stacked' && settings.data.reduce((sum, item) => sum + item.value, 0) > 100 && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-2 animate-in slide-in-from-top-2 duration-200">
+                  <span className="material-symbols-outlined text-red-500 text-[18px] shrink-0">error</span>
+                  <p className="text-[10px] font-bold text-red-600 uppercase tracking-tight leading-tight">
+                    The stacked bar chart should only be used for values up to 100%.
+                  </p>
+                </div>
+              )}
+              <div className="flex justify-between items-center mb-4 min-h-[24px]">
+                <div className="flex-1">
+                  {settings.chartType === 'stacked' && settings.data.reduce((sum, item) => sum + item.value, 0) < 100 && (
+                    <div className="flex items-center gap-1.5 text-amber-600 animate-in fade-in duration-200">
+                      <span className="material-symbols-outlined !text-[14px]">warning</span>
+                      <span className="text-[9px] font-bold uppercase tracking-tight">Your chart data adds up to less than 100%.</span>
+                    </div>
+                  )}
+                </div>
+                <button disabled={settings.chartType === 'donut'} onClick={() => fileInputRef.current?.click()} className={`text-[9px] bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition-colors uppercase font-bold flex items-center gap-1 ${settings.chartType === 'donut' ? 'opacity-30 cursor-not-allowed' : ''}`}>
+                  <span className="material-symbols-outlined !text-[12px]">upload</span>CSV
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleCsvUpload} className="hidden" accept=".csv" />
+              </div>
+              <div className={`space-y-4 pr-1 custom-scrollbar ${settings.chartType === 'stacked' ? '' : 'max-h-80 overflow-y-auto'}`}>
+                {settings.data.map((row, idx) => {
+                  const totalValue = settings.data.reduce((sum, item) => sum + item.value, 0);
+                  const isOver100 = settings.chartType === 'stacked' && totalValue > 100;
+                  const isUnder100 = settings.chartType === 'stacked' && totalValue < 100;
+                  
+                  return (
+                    <div key={idx} className="flex flex-col gap-1.5">
+                      <div className="flex gap-2 items-center group">
+                        {settings.chartType !== 'donut' && (
+                          <button onClick={() => toggleHighlight(idx)} className={`p-2 transition-colors rounded ${settings.highlightedIndex === idx ? 'text-amber-500' : 'text-gray-300 hover:text-gray-400'}`}>
+                            <span className="material-symbols-outlined !text-[18px]" style={settings.highlightedIndex === idx ? { fontVariationSettings: "'FILL' 1" } : {}}>star</span>
+                          </button>
+                        )}
+                        <textarea rows={1} className={`flex-1 p-2 bg-gray-50 border rounded text-xs focus:outline-none focus:ring-1 transition-all resize-none ${isOver100 ? 'border-red-200 focus:ring-red-500' : 'border-gray-200 focus:ring-black'}`} value={row.label} onChange={(e) => handleRowChange(idx, 'label', e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { /* Allow default enter for newline */ } }} />
+                        <div className="relative flex items-center">
+                          <input 
+                            type="number" 
+                            min="0" 
+                            max={(settings.chartType === 'donut' || settings.chartType === 'stacked') ? 100 : undefined} 
+                            className={`w-16 p-2 bg-gray-50 border rounded text-xs focus:outline-none focus:ring-1 transition-all text-right font-mono ${isOver100 ? 'border-red-200 focus:ring-red-500' : isUnder100 ? 'border-amber-400 focus:ring-amber-500' : 'border-gray-200 focus:ring-black'} ${(settings.chartType === 'donut' || settings.chartType === 'stacked') ? 'pr-5' : ''}`} 
+                            value={row.value} 
+                            onChange={(e) => handleRowChange(idx, 'value', e.target.value)} 
+                          />
+                          {(settings.chartType === 'donut' || settings.chartType === 'stacked') && (
+                            <span className="absolute right-2 text-[10px] font-bold text-gray-400 pointer-events-none">%</span>
+                          )}
+                        </div>
+                        <button disabled={settings.chartType === 'donut'} onClick={() => handleRemoveRow(idx)} className={`p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ${settings.chartType === 'donut' ? 'invisible' : ''}`}>
+                          <span className="material-symbols-outlined !text-[18px]">close</span>
+                        </button>
+                      </div>
+                      {(settings.chartType === 'donut' || settings.highlightedIndex === idx) && (
+                        <div className={`flex items-center gap-2 mb-1 animate-in fade-in slide-in-from-top-1 duration-200 ${settings.chartType === 'donut' ? 'ml-0' : 'ml-10'}`}>
+                          <input type="checkbox" id={`highlight-check-${idx}`} checked={settings.useHighlightColor} onChange={toggleHighlightColor} className="w-3.5 h-3.5 rounded border-gray-300 text-black focus:ring-black cursor-pointer" />
+                          <label htmlFor={`highlight-check-${idx}`} className="text-[9px] font-bold text-gray-500 uppercase tracking-tight cursor-pointer hover:text-black transition-colors">
+                            {settings.chartType === 'donut' ? 'Apply highlight color' : 'Apply highlight color to starred'}
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {(settings.chartType === 'bar' || settings.chartType === 'stacked') && (
+                <button onClick={handleAddRow} className="w-full mt-4 p-3 border-2 border-dashed border-gray-200 rounded-xl text-[10px] text-gray-400 hover:border-black hover:text-black transition-all uppercase tracking-widest font-bold">+ Add Data Point</button>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="p-6 border-t border-gray-100 bg-white space-y-2 mt-auto">
+        <div className="grid grid-cols-4 gap-2">
+          <button onClick={() => onDownload('png')} className="col-span-1 bg-gray-100 border border-gray-200 text-black p-3 rounded-xl font-bold tracking-widest text-[8px] hover:bg-gray-200 transition-all uppercase active:scale-[0.98] flex flex-col items-center justify-center gap-1">
+            <span className="material-symbols-outlined !text-[16px]">download</span>
+            PNG
+          </button>
+          <button onClick={() => onDownload('svg')} className="col-span-1 bg-gray-100 border border-gray-200 text-black p-3 rounded-xl font-bold tracking-widest text-[8px] hover:bg-gray-200 transition-all uppercase active:scale-[0.98] flex flex-col items-center justify-center gap-1">
+            <span className="material-symbols-outlined !text-[16px]">download</span>
+            SVG
+          </button>
+          <button onClick={() => onDownload('zip')} className="col-span-2 bg-black text-white p-3 rounded-xl font-bold tracking-widest text-[8px] hover:bg-black/90 transition-all uppercase flex flex-col items-center justify-center gap-1 active:scale-[0.98]">
+            <span className="material-symbols-outlined !text-[16px]">folder_zip</span>
+            Download All (ZIP)
+          </button>
+        </div>
+        
+        <div className="pt-2 border-t border-gray-50 mt-2">
+           <button 
+             onClick={() => sourceInputRef.current?.click()}
+             className="w-full bg-gray-50 border-2 border-dashed border-gray-200 text-black p-3 rounded-xl font-bold tracking-widest text-[9px] hover:border-black transition-all uppercase flex items-center justify-center gap-2"
+           >
+             <span className="material-symbols-outlined !text-[16px]">upload_file</span>
+             Upload Source File (JSON)
+           </button>
+           <input type="file" ref={sourceInputRef} onChange={handleSourceUpload} className="hidden" accept=".json" />
+        </div>
+      </div>
+    </div>
+  );
+};
