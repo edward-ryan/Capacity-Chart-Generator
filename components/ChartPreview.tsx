@@ -683,14 +683,20 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     });
   };
 
-  // Direct SVG download: mirrors the reference implementation exactly.
-  // Spins up a hidden p5 SVG-renderer instance, draws the chart, then calls
-  // p.save() which p5.js-svg intercepts to trigger a real vector SVG download.
+  // Direct SVG download: spins up a hidden p5 SVG-renderer instance, draws the
+  // chart once, then serializes p._renderer.svg to a Blob and triggers a clean
+  // browser download. We bypass p.save() because p5.js-svg's save path runs
+  // the SVG through encodeURIComponent → data:image/octet-stream, which causes
+  // the browser to save the URL-encoded text rather than valid XML.
   const downloadSvgDirect = (filename: string) => {
     const { width, height } = getCanvasDimensions(settingsRef.current);
     const hiddenDiv = document.createElement('div');
     hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
     document.body.appendChild(hiddenDiv);
+    const cleanup = (inst: any) => {
+      try { inst.remove(); } catch (_) {}
+      if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+    };
     new p5((p: any) => {
       p.setup = () => {
         p.createCanvas(width, height, p.SVG);
@@ -699,12 +705,24 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       p.draw = () => {
         drawChart(p, settingsRef.current);
         setTimeout(() => {
-          p.save(`${filename}.svg`);
-          setTimeout(() => {
-            try { p.remove(); } catch (_) {}
-            if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
-          }, 500);
-        }, 100);
+          try {
+            const svgEl = p._renderer?.svg as SVGSVGElement | undefined;
+            if (!svgEl || svgEl.tagName.toUpperCase() !== 'SVG') { cleanup(p); return; }
+            let s = new XMLSerializer().serializeToString(svgEl);
+            if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
+              s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+            const blob = new Blob([s], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `${filename}.svg`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+          } catch (e) {
+            console.error('SVG download failed:', e);
+          } finally {
+            cleanup(p);
+          }
+        }, 200);
       };
     }, hiddenDiv);
   };
