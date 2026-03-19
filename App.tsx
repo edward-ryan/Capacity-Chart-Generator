@@ -3,14 +3,13 @@ import { Sidebar } from './components/Sidebar';
 import { ChartPreview } from './components/ChartPreview';
 import { ChartSettings, CanvasType, ChartType } from './types';
 
-// Shared EyeIcon component using Material Symbols for consistent, recognizable UI
 export const EyeIcon = ({ active, onClick }: { active: boolean; onClick: () => void }) => (
-  <button 
-    onClick={onClick} 
-    className={`w-8 h-8 flex items-center justify-center transition-all rounded hover:bg-gray-100 ${active ? 'text-black' : 'text-gray-300'}`}
+  <button
+    onClick={onClick}
+    className={`w-7 h-7 flex items-center justify-center transition-all rounded hover:bg-zinc-700 ${active ? 'text-[#e4e4e7]' : 'text-zinc-600'}`}
     title={active ? "Hide" : "Show"}
   >
-    <span className="material-symbols-outlined !text-[20px] select-none">
+    <span className="material-symbols-outlined !text-[18px] select-none">
       {active ? 'visibility' : 'visibility_off'}
     </span>
   </button>
@@ -117,43 +116,41 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-[#f4f4f4] text-[#1a1a1a]">
-      <Sidebar 
-        settings={settings} 
-        onUpdate={handleUpdateSettings} 
+    <div className="flex flex-col md:flex-row h-screen w-full bg-[#0f0f12] text-[#e4e4e7]">
+      <Sidebar
+        settings={settings}
+        onUpdate={handleUpdateSettings}
         onDownload={handleDownload}
       />
 
-      <main 
-        className={`flex-1 flex flex-col overflow-hidden transition-colors duration-300 ${settings.showVisualizer ? 'bg-[#f4f4f4]' : 'bg-white'}`}
-      >
+      <main className="flex-1 flex flex-col overflow-hidden bg-[#0f0f12]">
         {/* Top Control Bar */}
-        <div className="w-full h-16 border-b border-gray-100 bg-white/80 backdrop-blur-md flex items-center px-8 shrink-0 z-20">
+        <div className="w-full h-14 border-b border-[#2e2e33] bg-[#18181b] flex items-center px-6 shrink-0 z-20">
           <div className="flex items-center gap-4">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Chart Type</span>
-            <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 items-center">
+            <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-widest whitespace-nowrap">Chart Type</span>
+            <div className="flex bg-black/20 p-1 rounded-md border border-[#2e2e33] items-center gap-0.5">
               <button
                 onClick={() => handleSwitchMode('bar')}
-                className={`px-3 py-1.5 rounded text-[9px] font-bold uppercase tracking-[0.2em] transition-all shadow-sm select-none ${
-                  settings.chartType === 'bar' ? 'bg-black text-white' : 'text-gray-400 hover:text-black'
+                className={`px-3 py-1.5 rounded font-mono text-[9px] uppercase tracking-[0.15em] transition-colors select-none ${
+                  settings.chartType === 'bar' ? 'bg-[#BFB9DA]/20 text-[#BFB9DA]' : 'text-[#a1a1aa] hover:text-[#e4e4e7]'
                 }`}
               >
                 Varied Width Bar
               </button>
-              <div className="w-[1px] h-3 bg-gray-300 mx-1" />
+              <div className="w-[1px] h-3 bg-[#2e2e33] mx-0.5" />
               <button
                 onClick={() => handleSwitchMode('donut')}
-                className={`px-3 py-1.5 rounded text-[9px] font-bold uppercase tracking-[0.2em] transition-all shadow-sm select-none ${
-                  settings.chartType === 'donut' ? 'bg-black text-white' : 'text-gray-400 hover:text-black'
+                className={`px-3 py-1.5 rounded font-mono text-[9px] uppercase tracking-[0.15em] transition-colors select-none ${
+                  settings.chartType === 'donut' ? 'bg-[#BFB9DA]/20 text-[#BFB9DA]' : 'text-[#a1a1aa] hover:text-[#e4e4e7]'
                 }`}
               >
                 Donut
               </button>
-              <div className="w-[1px] h-3 bg-gray-300 mx-1" />
+              <div className="w-[1px] h-3 bg-[#2e2e33] mx-0.5" />
               <button
                 onClick={() => handleSwitchMode('stacked')}
-                className={`px-3 py-1.5 rounded text-[9px] font-bold uppercase tracking-[0.2em] transition-all shadow-sm select-none ${
-                  settings.chartType === 'stacked' ? 'bg-black text-white' : 'text-gray-400 hover:text-black'
+                className={`px-3 py-1.5 rounded font-mono text-[9px] uppercase tracking-[0.15em] transition-colors select-none ${
+                  settings.chartType === 'stacked' ? 'bg-[#BFB9DA]/20 text-[#BFB9DA]' : 'text-[#a1a1aa] hover:text-[#e4e4e7]'
                 }`}
               >
                 Horizontal Bar
@@ -164,41 +161,40 @@ const App: React.FC = () => {
 
         {/* Chart Viewport */}
         <div className="flex-1 w-full h-full flex items-center justify-center p-8 overflow-auto">
-          <div className={`transition-all duration-300 ${settings.showVisualizer ? 'shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-gray-100' : ''}`}>
+          <div className={`transition-all duration-300 ${settings.showVisualizer ? 'shadow-[0_20px_60px_rgba(0,0,0,0.6)] border border-[#2e2e33]' : ''}`}>
             <ChartPreview settings={settings} />
           </div>
         </div>
 
-        {/* Horizontal Control Bar at the bottom */}
-        <div className="w-full h-16 border-t border-gray-100 bg-white/80 backdrop-blur-md flex items-center px-8 shrink-0 z-20">
-          <div className="flex items-center gap-12">
-            
+        {/* Bottom Control Bar */}
+        <div className="w-full h-14 border-t border-[#2e2e33] bg-[#18181b] flex items-center px-6 shrink-0 z-20">
+          <div className="flex items-center gap-8">
+
             {/* Canvas Preview Toggle */}
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Canvas Preview</span>
-              <EyeIcon 
-                active={settings.showVisualizer} 
-                onClick={() => handleUpdateSettings({ showVisualizer: !settings.showVisualizer })} 
+              <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-widest whitespace-nowrap">Canvas Preview</span>
+              <EyeIcon
+                active={settings.showVisualizer}
+                onClick={() => handleUpdateSettings({ showVisualizer: !settings.showVisualizer })}
               />
             </div>
 
-            {/* Vertical Divider */}
-            <div className="h-4 w-[1px] bg-gray-200" />
+            <div className="h-4 w-[1px] bg-[#2e2e33]" />
 
-            {/* Aspect Ratio Section */}
-            <div className="flex items-center gap-6">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Aspect Ratio</span>
-              
+            {/* Aspect Ratio */}
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-widest whitespace-nowrap">Aspect Ratio</span>
+
               <div className="flex items-center gap-3">
-                <div className="flex gap-1 bg-gray-100 p-1 rounded-lg border border-gray-200">
+                <div className="flex gap-0.5 bg-black/20 p-1 rounded-md border border-[#2e2e33]">
                   {(['square', 'vertical', 'wide', 'custom'] as CanvasType[]).map((type) => (
                     <button
                       key={type}
                       onClick={() => handleUpdateSettings({ canvasType: type })}
-                      className={`px-3 py-1 rounded text-[9px] font-bold uppercase tracking-tighter transition-all ${
-                        settings.canvasType === type 
-                          ? 'bg-black text-white' 
-                          : 'text-gray-400 hover:text-black'
+                      className={`px-3 py-1 rounded font-mono text-[9px] uppercase tracking-tighter transition-colors ${
+                        settings.canvasType === type
+                          ? 'bg-[#BFB9DA]/20 text-[#BFB9DA]'
+                          : 'text-[#a1a1aa] hover:text-[#e4e4e7]'
                       }`}
                     >
                       {type}
@@ -206,26 +202,25 @@ const App: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Custom Dimensions (Inline) */}
                 {settings.canvasType === 'custom' && (
-                  <div className="flex gap-2 items-center px-3 py-1 bg-gray-50 rounded-lg border border-gray-200 animate-in fade-in slide-in-from-left-2 duration-200">
+                  <div className="flex gap-2 items-center px-3 py-1.5 bg-zinc-900 rounded-md border border-[#2e2e33] animate-in fade-in slide-in-from-left-2 duration-200">
                     <div className="flex items-center gap-2">
-                      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">W</span>
-                      <input 
+                      <span className="font-mono text-[8px] text-[#a1a1aa] uppercase tracking-widest">W</span>
+                      <input
                         type="number"
                         value={settings.customWidth}
                         onChange={(e) => handleUpdateSettings({ customWidth: Math.max(100, parseInt(e.target.value) || 0) })}
-                        className="w-14 bg-transparent text-[10px] font-mono text-center focus:outline-none"
+                        className="w-14 bg-transparent font-mono text-[10px] text-center text-[#e4e4e7] focus:outline-none"
                       />
                     </div>
-                    <span className="text-gray-300">×</span>
+                    <span className="text-[#2e2e33]">×</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">H</span>
-                      <input 
+                      <span className="font-mono text-[8px] text-[#a1a1aa] uppercase tracking-widest">H</span>
+                      <input
                         type="number"
                         value={settings.customHeight}
                         onChange={(e) => handleUpdateSettings({ customHeight: Math.max(100, parseInt(e.target.value) || 0) })}
-                        className="w-14 bg-transparent text-[10px] font-mono text-center focus:outline-none"
+                        className="w-14 bg-transparent font-mono text-[10px] text-center text-[#e4e4e7] focus:outline-none"
                       />
                     </div>
                   </div>
