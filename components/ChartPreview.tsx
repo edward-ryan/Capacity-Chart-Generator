@@ -126,14 +126,14 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       p.textAlign(p.CENTER, p.CENTER);
       
       // Value text
-      p.textFont('Fahkwang, sans-serif');
+      p.textFont('Basel Classic');
       p.textStyle(p.NORMAL);
       p.textSize(180);
       p.textAlign(p.CENTER, p.CENTER);
       p.text(value.toString() + "%", centerX, centerY - 20);
 
       // Label text
-      p.textFont('Gothic A1, sans-serif');
+      p.textFont('Basel Grotesk');
       p.textSize(40);
       p.textStyle(p.NORMAL);
       p.textAlign(p.CENTER, p.TOP);
@@ -185,9 +185,9 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       const totalGaps = (sortedData.length - 1) * gapWidth;
       
       // Calculate potential label overflow to adjust width
-      p.textSize(42); p.textFont('Fahkwang, sans-serif'); p.textStyle(p.BOLD);
+      p.textSize(42); p.textFont('Basel Classic'); p.textStyle(p.BOLD);
       const percWidths = sortedData.map(item => p.textWidth(`${item.value}%`));
-      p.textSize(32); p.textFont('Gothic A1, sans-serif'); p.textStyle(p.NORMAL);
+      p.textSize(32); p.textFont('Basel Grotesk'); p.textStyle(p.NORMAL);
       const labelTextWidths = sortedData.map(item => p.textWidth(item.label));
       const itemMaxTextWidths = sortedData.map((_, i) => Math.max(percWidths[i], labelTextWidths[i]) + 25); // 13 offset + buffer
       
@@ -238,13 +238,13 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           p.textAlign(p.LEFT, p.BOTTOM);
           
           // Category Label (sits above the line)
-          p.textFont('Gothic A1, sans-serif');
+          p.textFont('Basel Grotesk');
           p.textStyle(p.NORMAL);
           p.textSize(categorySize);
           p.text(item.label, textX, baselineY - 5);
           
           // Percentage (above category)
-          p.textFont('Fahkwang, sans-serif');
+          p.textFont('Basel Classic');
           p.textStyle(p.BOLD);
           p.textSize(percentageSize);
           p.text(`${item.value}%`, textX, baselineY - categorySize - lineSpacing - 5);
@@ -254,10 +254,10 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           p.strokeWeight(2);
           
           // Measure widths precisely for the line
-          p.textFont('Fahkwang, sans-serif');
+          p.textFont('Basel Classic');
           p.textSize(percentageSize);
           const pW = p.textWidth(`${item.value}%`);
-          p.textFont('Gothic A1, sans-serif');
+          p.textFont('Basel Grotesk');
           p.textSize(categorySize);
           const cW = p.textWidth(item.label);
           const textWidth = Math.max(pW, cW);
@@ -291,12 +291,12 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
             p.fill(curColor);
             p.textAlign(p.LEFT, p.BASELINE);
             
-            p.textFont('Fahkwang, sans-serif');
+            p.textFont('Basel Classic');
             p.textStyle(p.BOLD);
             p.textSize(percentageSize);
             p.text(`${item.value}%`, textX, percentageBaselineY);
             
-            p.textFont('Gothic A1, sans-serif');
+            p.textFont('Basel Grotesk');
             p.textStyle(p.NORMAL);
             p.textSize(categorySize);
             p.text(item.label, textX, categoryBaselineY);
@@ -317,12 +317,12 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
             p.fill(curColor);
             p.textAlign(p.LEFT, p.BASELINE);
             
-            p.textFont('Fahkwang, sans-serif');
+            p.textFont('Basel Classic');
             p.textStyle(p.BOLD);
             p.textSize(percentageSize);
             p.text(`${item.value}%`, textX, percentageBaselineY);
             
-            p.textFont('Gothic A1, sans-serif');
+            p.textFont('Basel Grotesk');
             p.textStyle(p.NORMAL);
             p.textSize(categorySize);
             p.text(item.label, textX, categoryBaselineY);
@@ -377,7 +377,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     if (cur.showTitle && cur.title) {
       p.fill(fg);
       p.noStroke();
-      p.textFont('Gothic A1, sans-serif');
+      p.textFont('Basel Grotesk');
       p.textStyle(p.BOLD);
       p.textSize(titleSize);
       p.textAlign(p.LEFT, p.TOP);
@@ -393,7 +393,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     if (cur.showCaption && cur.caption) {
       p.fill(fg);
       p.noStroke();
-      p.textFont('Gothic A1, sans-serif');
+      p.textFont('Basel Grotesk');
       p.textStyle(p.NORMAL);
       p.textSize(captionSize);
       p.textAlign(p.LEFT, p.TOP);
@@ -409,7 +409,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     if (cur.showSource && cur.source) {
       p.fill(fg);
       p.noStroke();
-      p.textFont('Lekton, monospace');
+      p.textFont('Basel Grotesk Mono');
       p.textSize(sourceSize);
       
       if (cur.chartType === 'stacked' || (cur.chartType === 'donut' && cur.canvasType === 'vertical')) {
@@ -511,7 +511,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       const roundedMax = finalNumSteps * yStep;
 
       p.textSize(yLabelSize);
-      p.textFont('Lekton, monospace');
+      p.textFont('Basel Grotesk Mono');
       let maxLabelWidth = 0;
       if (cur.showYAxisLabels) {
         for (let i = 0; i <= finalNumSteps; i++) {
@@ -571,7 +571,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       if (cur.showYAxisTitle && cur.yAxisTitle) {
         p.push();
         p.fill(fg); p.noStroke();
-        p.textFont('Lekton, monospace');
+        p.textFont('Basel Grotesk Mono');
         p.textSize(yLabelSize); p.textAlign(p.CENTER, p.BOTTOM);
         const centerY = (axisY + barCeilingY) / 2;
         p.translate(labelRightEdgeX - maxLabelWidth - unit, centerY);
@@ -580,7 +580,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         p.pop();
       }
 
-      p.textSize(yLabelSize); p.textFont('Lekton, monospace'); p.textStyle(p.NORMAL); p.textAlign(p.RIGHT, p.CENTER);
+      p.textSize(yLabelSize); p.textFont('Basel Grotesk Mono'); p.textStyle(p.NORMAL); p.textAlign(p.RIGHT, p.CENTER);
       for (let i = 0; i <= finalNumSteps; i++) {
         const val = i * yStep;
         const yPos = axisY - (val / roundedMax) * availableHeight;
@@ -605,7 +605,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           p.noStroke(); p.fill(useHighColor ? highlightColor : fg);
           p.rect(currentX, axisY - h, barW, h);
           if (cur.showBarValues) {
-            p.push(); p.fill(useHighColor ? highlightColor : fg); p.noStroke(); p.textFont('Lekton, monospace'); p.textSize(barValueSize); p.textAlign(p.CENTER, p.BOTTOM);
+            p.push(); p.fill(useHighColor ? highlightColor : fg); p.noStroke(); p.textFont('Basel Grotesk Mono'); p.textSize(barValueSize); p.textAlign(p.CENTER, p.BOTTOM);
             p.text(item.value.toString(), currentX + barW / 2, axisY - h - 15); p.pop();
           }
           if (cur.showAngledLabels && !cur.showXAxisLabel) {
@@ -614,14 +614,14 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
             const angle = p.QUARTER_PI;
             const endX = startX + uniformLineLen * p.cos(angle); const endY = startY + uniformLineLen * p.sin(angle);
             p.line(startX, startY, endX, endY); p.noStroke(); p.fill(useHighColor ? highlightColor : fg);
-            p.translate(startX, startY); p.rotate(angle); p.textFont('Gothic A1, sans-serif'); p.textSize(labelSize); p.textStyle(isHigh ? p.BOLD : p.NORMAL); p.textAlign(p.RIGHT, p.BOTTOM);
+            p.translate(startX, startY); p.rotate(angle); p.textFont('Basel Grotesk'); p.textSize(labelSize); p.textStyle(isHigh ? p.BOLD : p.NORMAL); p.textAlign(p.RIGHT, p.BOTTOM);
             const lines = processedLabels[i];
             if (lines.length === 2) { p.text(lines[1], uniformLineLen - 5, -8); p.text(lines[0], uniformLineLen - 5, -8 - labelLeading); } else { p.text(lines[0], uniformLineLen - 5, -8); }
             p.pop();
           }
           currentX += barW + gapW;
         });
-        if (cur.showXAxisLabel && cur.xAxisLabel) { p.noStroke(); p.fill(fg); p.textFont('Lekton, monospace'); p.textSize(xAxisTitleSize); p.textAlign(p.LEFT, p.TOP); p.text(cur.xAxisLabel.toUpperCase(), chartLeftStart, axisY + 40); }
+        if (cur.showXAxisLabel && cur.xAxisLabel) { p.noStroke(); p.fill(fg); p.textFont('Basel Grotesk Mono'); p.textSize(xAxisTitleSize); p.textAlign(p.LEFT, p.TOP); p.text(cur.xAxisLabel.toUpperCase(), chartLeftStart, axisY + 40); }
       }
     } catch (e) { console.error("Draw Loop Error:", e); }
   };
