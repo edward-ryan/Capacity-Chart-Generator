@@ -194,7 +194,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
 
       {/* Header */}
       <div className="px-5 pt-7 pb-5 border-b border-[#2e2e33]">
-        <img src="/Capacity_Logo_Black_2000w.svg" alt="Capacity" className="h-5 w-auto invert" />
+        <img src="/Capacity_Logo_White_2000w.svg" alt="Capacity" className="h-5 w-auto" />
         <p className="font-mono text-[10px] text-white tracking-widest uppercase mt-[50px]">Chart Generator</p>
       </div>
 
