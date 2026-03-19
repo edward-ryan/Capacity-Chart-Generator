@@ -654,8 +654,9 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           // Small delay to ensure the SVG DOM has fully flushed all draw calls.
           setTimeout(() => {
             try {
-              // p._renderer.elt is the live <svg> element created by p5.js-svg.
-              const svgEl = p._renderer?.elt as SVGSVGElement | undefined;
+              // p._renderer.svg is the live <svg> DOM element (p._renderer.elt is
+              // just a fake canvas wrapper; the actual SVG is at .svg).
+              const svgEl = p._renderer?.svg as SVGSVGElement | undefined;
               if (!svgEl || svgEl.tagName.toUpperCase() !== 'SVG') {
                 cleanup(p); resolve(''); return;
               }
