@@ -410,8 +410,9 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       p.fill(fg);
       p.noStroke();
       p.textFont('Basel Grotesk Mono');
+      p.textStyle(p.NORMAL);
       p.textSize(sourceSize);
-      
+
       if (cur.chartType === 'stacked' || (cur.chartType === 'donut' && cur.canvasType === 'vertical')) {
         let sourceCursorY = 0;
         if (cur.chartType === 'stacked') {

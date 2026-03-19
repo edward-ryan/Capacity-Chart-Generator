@@ -190,10 +190,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
   const currentPalette = allPalettes.find(p => p.bg === settings.backgroundColor && p.fg === settings.contentColor) || allPalettes[0];
 
   return (
-    <div className="w-full md:w-96 bg-white shadow-xl border-r border-gray-200 flex flex-col h-full z-10 overflow-hidden font-sans">
-      <div className="p-6 bg-white border-b border-gray-100 z-20">
-        <h1 className="text-xl font-bold tracking-tight mb-1 uppercase text-black">Capacity</h1>
-        <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Chart Generator</p>
+    <div className="w-full md:w-96 bg-white shadow-xl border-r border-gray-200 flex flex-col h-full z-10 overflow-hidden">
+      <div className="px-6 py-5 bg-white border-b border-gray-100 z-20">
+        <img src="/Capacity_Logo_Black_2000w.svg" alt="Capacity" className="h-[18px] w-auto mb-2" />
+        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-medium">Chart Generator</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -218,21 +218,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chart Title</label>
                   <EyeIcon active={settings.showTitle} onClick={() => onUpdate({ showTitle: !settings.showTitle })} />
                 </div>
-                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-sm uppercase resize-none font-sans" value={settings.title} onChange={(e) => onUpdate({ title: e.target.value })} />
+                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-sm uppercase resize-none" value={settings.title} onChange={(e) => onUpdate({ title: e.target.value })} />
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chart Caption</label>
                   <EyeIcon active={settings.showCaption} onClick={() => onUpdate({ showCaption: !settings.showCaption })} />
                 </div>
-                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-sm resize-none font-sans" value={settings.caption} onChange={(e) => onUpdate({ caption: e.target.value })} />
+                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-sm resize-none" value={settings.caption} onChange={(e) => onUpdate({ caption: e.target.value })} />
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Source</label>
                   <EyeIcon active={settings.showSource} onClick={() => onUpdate({ showSource: !settings.showSource })} />
                 </div>
-                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-xs resize-none font-sans" value={settings.source} onChange={(e) => onUpdate({ source: e.target.value })} />
+                <textarea rows={2} className="w-full p-2.5 bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-black text-xs resize-none" value={settings.source} onChange={(e) => onUpdate({ source: e.target.value })} />
               </div>
 
               {settings.chartType === 'donut' && (
