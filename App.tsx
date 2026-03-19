@@ -63,6 +63,7 @@ const STACKED_DEFAULTS: Partial<ChartSettings> = {
 };
 
 const App: React.FC = () => {
+  const [isDarkCanvas, setIsDarkCanvas] = useState(true);
   const [settings, setSettings] = useState<ChartSettings>({
     chartType: 'bar',
     title: 'NEW BRAND REPORT',
@@ -160,8 +161,8 @@ const App: React.FC = () => {
         </div>
 
         {/* Chart Viewport */}
-        <div className="flex-1 w-full h-full flex items-center justify-center p-8 overflow-auto">
-          <div className={`transition-all duration-300 ${settings.showVisualizer ? 'shadow-[0_20px_60px_rgba(0,0,0,0.6)] border border-[#2e2e33]' : ''}`}>
+        <div className={`flex-1 w-full h-full flex items-center justify-center p-8 overflow-auto transition-colors duration-300 ${isDarkCanvas ? 'bg-[#27272a]' : 'bg-gray-100'}`}>
+          <div className={`transition-all duration-300 ${settings.showVisualizer ? `shadow-2xl ring-1 ${isDarkCanvas ? 'shadow-black ring-white/10' : 'shadow-zinc-400 ring-black/10'}` : ''}`}>
             <ChartPreview settings={settings} />
           </div>
         </div>
@@ -177,6 +178,22 @@ const App: React.FC = () => {
                 active={settings.showVisualizer}
                 onClick={() => handleUpdateSettings({ showVisualizer: !settings.showVisualizer })}
               />
+            </div>
+
+            <div className="h-4 w-[1px] bg-[#2e2e33]" />
+
+            {/* Dark / Light Canvas Toggle */}
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-widest whitespace-nowrap">Canvas Mode</span>
+              <button
+                onClick={() => setIsDarkCanvas(v => !v)}
+                className="w-7 h-7 flex items-center justify-center transition-all rounded hover:bg-zinc-700 text-[#e4e4e7]"
+                title={isDarkCanvas ? 'Switch to Light Canvas' : 'Switch to Dark Canvas'}
+              >
+                <span className="material-symbols-outlined !text-[18px] select-none">
+                  {isDarkCanvas ? 'light_mode' : 'dark_mode'}
+                </span>
+              </button>
             </div>
 
             <div className="h-4 w-[1px] bg-[#2e2e33]" />

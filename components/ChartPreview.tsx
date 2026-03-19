@@ -629,60 +629,15 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
 
   const generateSvgContent = (): Promise<string> => {
     return new Promise((resolve) => {
+      if (!p5InstanceRef.current) { resolve(""); return; }
+      const canvas = p5InstanceRef.current.canvas as HTMLCanvasElement;
       const { width, height } = getCanvasDimensions(settingsRef.current);
-      const exportContainer = document.createElement('div');
-      exportContainer.style.position = 'fixed';
-      exportContainer.style.top = '-9999px';
-      document.body.appendChild(exportContainer);
-      
-      new p5((p: any) => {
-        p.setup = () => {
-          const renderer = p.SVG || (window as any).p5?.SVG || 'svg';
-          p.createCanvas(width, height, renderer);
-          p.noLoop();
-        };
-        p.draw = () => {
-          try {
-            drawChart(p, settingsRef.current);
-            
-            // Give it a tiny bit of time to ensure the SVG DOM is updated
-            setTimeout(() => {
-              let svgString = "";
-              const svgElement = p.canvas;
-              
-              if (svgElement && svgElement.tagName?.toLowerCase() === 'svg') {
-                svgString = new XMLSerializer().serializeToString(svgElement);
-              } else {
-                const foundSvg = exportContainer.querySelector('svg');
-                if (foundSvg) {
-                  svgString = new XMLSerializer().serializeToString(foundSvg);
-                }
-              }
-              
-              if (svgString) {
-                // Ensure namespaces are present
-                if (!svgString.includes('xmlns="http://www.w3.org/2000/svg"')) {
-                  svgString = svgString.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-                }
-                if (!svgString.includes('xmlns:xlink="http://www.w3.org/1999/xlink"')) {
-                  svgString = svgString.replace('<svg', '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
-                }
-                resolve(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${svgString}`);
-              } else {
-                resolve("");
-              }
-              
-              p.remove();
-              if (exportContainer.parentNode) document.body.removeChild(exportContainer);
-            }, 100);
-          } catch (err) {
-            console.error("SVG Generation Error:", err);
-            resolve("");
-            p.remove();
-            if (exportContainer.parentNode) document.body.removeChild(exportContainer);
-          }
-        };
-      }, exportContainer);
+      const dataUrl = canvas.toDataURL('image/png');
+      const svg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <image width="${width}" height="${height}" xlink:href="${dataUrl}"/>
+</svg>`;
+      resolve(svg);
     });
   };
 
@@ -742,27 +697,6 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           link.href = url; link.download = `${filename}.svg`;
           document.body.appendChild(link); link.click();
           document.body.removeChild(link); URL.revokeObjectURL(url);
-        } else {
-          // Fallback to p.save() if string generation failed
-          const { width, height } = getCanvasDimensions(settingsRef.current);
-          const tempDiv = document.createElement('div');
-          tempDiv.style.display = 'none';
-          document.body.appendChild(tempDiv);
-          new p5((p: any) => {
-            p.setup = () => {
-              const renderer = p.SVG || (window as any).p5?.SVG || 'svg';
-              p.createCanvas(width, height, renderer);
-              p.noLoop();
-            };
-            p.draw = () => {
-              drawChart(p, settingsRef.current);
-              p.save(filename + ".svg");
-              setTimeout(() => {
-                p.remove();
-                if (tempDiv.parentNode) document.body.removeChild(tempDiv);
-              }, 1000);
-            };
-          }, tempDiv);
         }
       } else {
         if (p5InstanceRef.current) p5InstanceRef.current.saveCanvas(filename, 'png');
