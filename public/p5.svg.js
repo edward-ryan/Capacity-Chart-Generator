@@ -1616,16 +1616,14 @@
                     }
                 }
             };
-            var pInstProxy = new Proxy(pInst, {
-                get: function (target, prop) {
-                    if (prop === '_pixelDensity') {
-                        // 1 is OK for SVG
-                        return 1;
-                    }
-                    return target[prop];
-                }
-            });
-            p5.Renderer2D.call(this, elt, pInstProxy, isMainCanvas);
+            // Ensure _pixelDensity is 1 on the ACTUAL p5 instance so every
+            // internal p5 renderer method (background, fill, text, …) finds it
+            // directly without needing a Proxy.  The hidden SVG instance is
+            // separate from the main canvas instance so this is safe.
+            if (pInst && pInst._pixelDensity == null) {
+                pInst._pixelDensity = 1;
+            }
+            p5.Renderer2D.call(this, elt, pInst, isMainCanvas);
             // Ensure drawingContext is set regardless of p5 version.
             if (!this.drawingContext) {
                 this.drawingContext = elt.getContext('2d');
@@ -1656,12 +1654,16 @@
                 // note that at first this.width and this.height is undefined
                 this.drawingContext.__clearCanvas();
             }
-            // Do NOT call p5.Renderer2D.prototype.resize — it accesses
-            // this._pInst._pixelDensity in a way that crashes with the proxy
-            // wrapper used during hidden-instance SVG generation.
+            // Do NOT call p5.Renderer2D.prototype.resize — it tries to set
+            // this.elt.width which can be undefined for the SVGCanvasElement.
             // Set all dimensions manually instead.
             this.width = w;
             this.height = h;
+            // Propagate to the p5 instance (normally done by Renderer2D.resize).
+            if (this._isMainCanvas && this._pInst) {
+                this._pInst.width = w;
+                this._pInst.height = h;
+            }
             // Keep the SVG context's internal width/height in sync so that
             // fillRect(0,0,w,h) comparisons work correctly (e.g. background()).
             if (this.drawingContext) {

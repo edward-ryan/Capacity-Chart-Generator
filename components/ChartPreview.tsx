@@ -649,6 +649,10 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
 
         new p5((p: any) => {
           p.setup = () => {
+            // Set _pixelDensity=1 before createCanvas so all internal p5
+            // renderer methods that access _pixelDensity work correctly.
+            // SVG output is resolution-independent so density 1 is correct.
+            p._pixelDensity = 1;
             p.createCanvas(width, height, p.SVG);
             p.noLoop();
 
