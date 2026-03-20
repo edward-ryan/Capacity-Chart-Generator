@@ -1626,6 +1626,12 @@
                 }
             });
             p5.Renderer2D.call(this, elt, pInstProxy, isMainCanvas);
+            // p5.js 1.9 changed when drawingContext is assigned during init.
+            // Explicitly set it here so all subsequent calls (resize,
+            // _applyDefaults, etc.) always have a valid context.
+            if (!this.drawingContext) {
+                this.drawingContext = elt.getContext('2d');
+            }
             this.isSVG = true;
             this.svg = svg;
             return this;
