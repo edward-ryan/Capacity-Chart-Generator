@@ -661,7 +661,17 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
               return;
             }
 
-            drawChart(p, settingsRef.current);
+            try {
+              drawChart(p, settingsRef.current);
+            } catch (drawErr) {
+              console.error('[SVG] drawChart threw:', drawErr);
+            }
+            // Log SVG element count for diagnostics
+            const allEls = svgEl.querySelectorAll('*');
+            console.log('[SVG] elements after draw:', allEls.length, '| w/h:', p.width, p.height, '| renderer w/h:', p._renderer?.width, p._renderer?.height);
+            if (allEls.length < 5) {
+              console.warn('[SVG] very few elements — SVG may be blank. First 500 chars:', svgEl.outerHTML.substring(0, 500));
+            }
             // SVG drawing ops are synchronous — serialize immediately.
             try {
               let s = new XMLSerializer().serializeToString(svgEl);
