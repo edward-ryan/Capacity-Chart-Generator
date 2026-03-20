@@ -1626,6 +1626,10 @@
                 }
             });
             p5.Renderer2D.call(this, elt, pInstProxy, isMainCanvas);
+            // Ensure drawingContext is set regardless of p5 version.
+            if (!this.drawingContext) {
+                this.drawingContext = elt.getContext('2d');
+            }
             this.isSVG = true;
             this.svg = svg;
             return this;
@@ -1637,6 +1641,13 @@
         };
         RendererSVG.prototype.resize = function (w, h) {
             if (!w || !h) {
+                return;
+            }
+            // The base Renderer constructor calls resize() via the prototype
+            // chain before drawingContext is assigned. Bail out so we don't
+            // crash — the explicit resize() from createCanvas runs after the
+            // constructor finishes and will succeed.
+            if (!this.drawingContext) {
                 return;
             }
             if (this.width !== w || this.height !== h) {
