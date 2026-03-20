@@ -1624,6 +1624,11 @@
                 pInst._pixelDensity = 1;
             }
             p5.Renderer2D.call(this, elt, pInst, isMainCanvas);
+            // p5 1.8's Renderer2D constructor no longer sets this._pInst
+            // via the prototype chain — set it explicitly so every renderer
+            // method (background, fill, text, …) can reach the p5 instance.
+            if (!this._pInst) { this._pInst = pInst; }
+            if (this._isMainCanvas == null) { this._isMainCanvas = !!isMainCanvas; }
             // Ensure drawingContext is set regardless of p5 version.
             if (!this.drawingContext) {
                 this.drawingContext = elt.getContext('2d');
