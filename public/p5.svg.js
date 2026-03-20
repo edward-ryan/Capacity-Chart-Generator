@@ -1643,7 +1643,12 @@
                 // canvas will be cleared if its size changed
                 // so, we do same thing for SVG
                 // note that at first this.width and this.height is undefined
-                this.drawingContext.__clearCanvas();
+                // Guard: in p5 1.9+, resize() is called during base-class
+                // constructor init before drawingContext is assigned. Skip
+                // the clear if drawingContext is not yet set.
+                if (this.drawingContext) {
+                    this.drawingContext.__clearCanvas();
+                }
             }
             p5.Renderer2D.prototype.resize.call(this, w, h);
             // For scale, crop
