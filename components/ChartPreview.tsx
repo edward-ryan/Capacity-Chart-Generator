@@ -25,6 +25,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const p5InstanceRef = useRef<any>(null);
   const settingsRef = useRef<ChartSettings>(settings);
+  const svgCacheRef = useRef<string>('');
 
   const { width: canvasW, height: canvasH } = getCanvasDimensions(settings);
   const MAX_PREVIEW_HEIGHT = 700;
@@ -627,11 +628,11 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     } catch (e) { console.error("Draw Loop Error:", e); }
   };
 
-  // Spins up a hidden p5 instance with the SVG renderer, draws the chart once,
-  // then serializes p._renderer.svg (the live <svg> DOM element) to a string.
-  // Used by the ZIP export path. Has a 5s timeout so it can never hang forever.
+  // Spins up a hidden p5 SVG-renderer instance, draws the chart once, and
+  // resolves with the serialized SVG XML string (or '' on failure).
   const generateSvgString = (): Promise<string> => {
     return new Promise((resolve) => {
+      console.log('[SVG] generateSvgString: start');
       const { width, height } = getCanvasDimensions(settingsRef.current);
       const hiddenDiv = document.createElement('div');
       hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
@@ -641,43 +642,51 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       const finish = (inst: any, result: string) => {
         if (settled) return;
         settled = true;
+        console.log('[SVG] generateSvgString: finish, length=', result.length);
         try { inst.remove(); } catch (_) {}
         if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
         resolve(result);
       };
 
-      // Safety timeout — if p5 setup/draw never fires, resolve with ''
       const guard = setTimeout(() => {
-        if (!settled) { if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv); resolve(''); }
+        if (!settled) {
+          console.error('[SVG] generateSvgString: TIMED OUT — draw() never ran');
+          if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+          resolve('');
+        }
       }, 5000);
 
       try {
+        console.log('[SVG] generateSvgString: creating p5 instance, p.SVG=', (window as any).p5?.prototype?.SVG);
         new p5((p: any) => {
           p.setup = () => {
+            console.log('[SVG] setup: p.SVG=', p.SVG);
             p.createCanvas(width, height, p.SVG);
-            // Do NOT call p.noLoop() here — in p5 1.9, noLoop() in setup()
-            // sets _loop=false before the first RAF fires, so draw() never runs.
+            console.log('[SVG] setup: after createCanvas, _renderer=', p._renderer?.constructor?.name, 'svg=', p._renderer?.svg?.tagName);
+            p.noLoop();
           };
           p.draw = () => {
-            p.noLoop(); // stop after this one draw
+            console.log('[SVG] draw: called, _renderer=', p._renderer?.constructor?.name);
             drawChart(p, settingsRef.current);
             setTimeout(() => {
               clearTimeout(guard);
               try {
-                const svgEl = p._renderer?.svg as SVGSVGElement | undefined;
-                if (!svgEl || svgEl.tagName.toUpperCase() !== 'SVG') { finish(p, ''); return; }
+                const svgEl = p._renderer?.svg;
+                console.log('[SVG] serialize: svgEl=', svgEl?.tagName, svgEl?.childElementCount);
+                if (!svgEl) { console.error('[SVG] serialize: p._renderer.svg is undefined'); finish(p, ''); return; }
                 let s = new XMLSerializer().serializeToString(svgEl);
                 if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
                   s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
                 finish(p, `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${s}`);
               } catch (e) {
-                console.error('SVG serialization failed:', e);
+                console.error('[SVG] serialize: threw', e);
                 finish(p, '');
               }
             }, 200);
           };
         }, hiddenDiv);
       } catch (e) {
+        console.error('[SVG] generateSvgString: p5 constructor threw', e);
         clearTimeout(guard);
         if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
         resolve('');
@@ -685,49 +694,19 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     });
   };
 
-  // Direct SVG download: spins up a hidden p5 SVG-renderer instance, draws the
-  // chart once, then serializes p._renderer.svg to a Blob and triggers a clean
-  // browser download. We bypass p.save() because p5.js-svg's save path runs
-  // the SVG through encodeURIComponent → data:image/octet-stream, which causes
-  // the browser to save the URL-encoded text rather than valid XML.
-  const downloadSvgDirect = (filename: string) => {
-    const { width, height } = getCanvasDimensions(settingsRef.current);
-    const hiddenDiv = document.createElement('div');
-    hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
-    document.body.appendChild(hiddenDiv);
-    const cleanup = (inst: any) => {
-      try { inst.remove(); } catch (_) {}
-      if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
-    };
-    new p5((p: any) => {
-      p.setup = () => {
-        p.createCanvas(width, height, p.SVG);
-        // Do NOT call p.noLoop() here — see generateSvgString for explanation.
-      };
-      p.draw = () => {
-        p.noLoop(); // stop after this one draw
-        drawChart(p, settingsRef.current);
-        setTimeout(() => {
-          try {
-            const svgEl = p._renderer?.svg as SVGSVGElement | undefined;
-            if (!svgEl || svgEl.tagName.toUpperCase() !== 'SVG') { cleanup(p); return; }
-            let s = new XMLSerializer().serializeToString(svgEl);
-            if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
-              s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-            const blob = new Blob([s], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `${filename}.svg`;
-            document.body.appendChild(a); a.click();
-            document.body.removeChild(a); URL.revokeObjectURL(url);
-          } catch (e) {
-            console.error('SVG download failed:', e);
-          } finally {
-            cleanup(p);
-          }
-        }, 200);
-      };
-    }, hiddenDiv);
+  // Trigger a file download for a given SVG XML string.
+  const triggerSvgDownload = (svgXml: string, filename: string) => {
+    console.log('[SVG] triggerSvgDownload: length=', svgXml.length);
+    const blob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Delay revocation so the browser has time to initiate the download.
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
   useEffect(() => {
@@ -753,11 +732,23 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     return () => { if (p5InstanceRef.current) { p5InstanceRef.current.remove(); p5InstanceRef.current = null; } };
   }, [settings.canvasType, settings.chartType]);
 
+  // Pre-warm the SVG cache whenever settings change so the download fires
+  // synchronously (inside the user-gesture window) when the button is clicked.
+  useEffect(() => {
+    svgCacheRef.current = '';
+    let cancelled = false;
+    generateSvgString().then(s => {
+      if (!cancelled) svgCacheRef.current = s;
+    });
+    return () => { cancelled = true; };
+  }, [settings]);
+
   useEffect(() => {
     const handleDownload = async (e: any) => {
       const format = e.detail?.format || 'png';
       const filename = `brand-chart-${Date.now()}`;
-      
+      console.log('[download] format=', format);
+
       if (format === 'zip') {
         const zip = new JSZip();
         const sourceJson = JSON.stringify(settingsRef.current, null, 2);
@@ -776,9 +767,21 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         const link = document.createElement('a');
         link.href = url; link.download = `${filename}-bundle.zip`;
         document.body.appendChild(link); link.click();
-        document.body.removeChild(link); URL.revokeObjectURL(url);
+        document.body.removeChild(link); setTimeout(() => URL.revokeObjectURL(url), 2000);
       } else if (format === 'svg') {
-        downloadSvgDirect(filename);
+        // Use cached SVG if ready (synchronous path — inside user gesture window).
+        // Fall back to generating on demand if the cache isn't warm yet.
+        const cached = svgCacheRef.current;
+        console.log('[SVG download] cache length=', cached.length);
+        if (cached) {
+          triggerSvgDownload(cached, filename);
+        } else {
+          console.warn('[SVG download] cache empty, generating on demand');
+          generateSvgString().then(s => {
+            if (s) triggerSvgDownload(s, filename);
+            else console.error('[SVG download] generateSvgString returned empty');
+          });
+        }
       } else {
         if (p5InstanceRef.current) p5InstanceRef.current.saveCanvas(filename, 'png');
       }
