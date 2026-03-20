@@ -632,62 +632,37 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
   // resolves with the serialized SVG XML string (or '' on failure).
   const generateSvgString = (): Promise<string> => {
     return new Promise((resolve) => {
-      console.log('[SVG] generateSvgString: start');
       const { width, height } = getCanvasDimensions(settingsRef.current);
       const hiddenDiv = document.createElement('div');
       hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
       document.body.appendChild(hiddenDiv);
 
-      let settled = false;
-      const finish = (inst: any, result: string) => {
-        if (settled) return;
-        settled = true;
-        console.log('[SVG] generateSvgString: finish, length=', result.length);
-        try { inst.remove(); } catch (_) {}
-        if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
-        resolve(result);
-      };
-
-      const guard = setTimeout(() => {
-        if (!settled) {
-          console.error('[SVG] generateSvgString: TIMED OUT — draw() never ran');
-          if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
-          resolve('');
-        }
-      }, 5000);
-
       try {
-        console.log('[SVG] generateSvgString: creating p5 instance, p.SVG=', (window as any).p5?.prototype?.SVG);
         new p5((p: any) => {
           p.setup = () => {
-            console.log('[SVG] setup: p.SVG=', p.SVG);
             p.createCanvas(width, height, p.SVG);
-            console.log('[SVG] setup: after createCanvas, _renderer=', p._renderer?.constructor?.name, 'svg=', p._renderer?.svg?.tagName);
             p.noLoop();
-          };
-          p.draw = () => {
-            console.log('[SVG] draw: called, _renderer=', p._renderer?.constructor?.name);
             drawChart(p, settingsRef.current);
-            setTimeout(() => {
-              clearTimeout(guard);
-              try {
-                const svgEl = p._renderer?.svg;
-                console.log('[SVG] serialize: svgEl=', svgEl?.tagName, svgEl?.childElementCount);
-                if (!svgEl) { console.error('[SVG] serialize: p._renderer.svg is undefined'); finish(p, ''); return; }
-                let s = new XMLSerializer().serializeToString(svgEl);
-                if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
-                  s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-                finish(p, `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${s}`);
-              } catch (e) {
-                console.error('[SVG] serialize: threw', e);
-                finish(p, '');
-              }
-            }, 200);
+            // SVG drawing ops are synchronous — serialize immediately.
+            try {
+              const svgEl = p._renderer?.svg;
+              if (!svgEl) { p.remove(); if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv); resolve(''); return; }
+              let s = new XMLSerializer().serializeToString(svgEl);
+              if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
+                s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+              p.remove();
+              if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+              resolve(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${s}`);
+            } catch (e) {
+              console.error('[SVG] serialize error:', e);
+              try { p.remove(); } catch (_) {}
+              if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+              resolve('');
+            }
           };
         }, hiddenDiv);
       } catch (e) {
-        console.error('[SVG] generateSvgString: p5 constructor threw', e);
-        clearTimeout(guard);
+        console.error('[SVG] p5 constructor threw:', e);
         if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
         resolve('');
       }
