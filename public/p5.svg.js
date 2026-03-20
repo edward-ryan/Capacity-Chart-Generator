@@ -948,6 +948,56 @@
             this.closePath();
         };
 
+        /**
+         * Adds a rounded rectangle subpath to the current path.
+         * p5.js 1.8+ calls ctx.roundRect() for all rectangles (including those
+         * with zero corner radii). The standard canvas2svg library predates this
+         * API so we add it here.
+         * @param {number} x
+         * @param {number} y
+         * @param {number} w
+         * @param {number} h
+         * @param {number|number[]} [radii=0]  corner radius or [tl, tr, br, bl]
+         */
+        Context.prototype.roundRect = function (x, y, w, h, radii) {
+            // Normalise radii to [tl, tr, br, bl]
+            var r;
+            if (typeof radii === 'undefined' || radii === null) {
+                r = [0, 0, 0, 0];
+            } else if (typeof radii === 'number') {
+                r = [radii, radii, radii, radii];
+            } else if (Array.isArray(radii)) {
+                if (radii.length === 1)      r = [radii[0], radii[0], radii[0], radii[0]];
+                else if (radii.length === 2) r = [radii[0], radii[1], radii[0], radii[1]];
+                else if (radii.length === 3) r = [radii[0], radii[1], radii[2], radii[1]];
+                else                         r = [radii[0], radii[1], radii[2], radii[3]];
+            } else {
+                r = [0, 0, 0, 0];
+            }
+            var halfW = Math.abs(w) / 2;
+            var halfH = Math.abs(h) / 2;
+            var tl = Math.min(r[0] || 0, halfW, halfH);
+            var tr = Math.min(r[1] || 0, halfW, halfH);
+            var br = Math.min(r[2] || 0, halfW, halfH);
+            var bl = Math.min(r[3] || 0, halfW, halfH);
+
+            // Build path (caller is responsible for beginPath)
+            this.moveTo(x + tl, y);
+            this.lineTo(x + w - tr, y);
+            if (tr > 0) { this.arcTo(x + w, y, x + w, y + tr, tr); }
+            else         { this.lineTo(x + w, y); }
+            this.lineTo(x + w, y + h - br);
+            if (br > 0) { this.arcTo(x + w, y + h, x + w - br, y + h, br); }
+            else         { this.lineTo(x + w, y + h); }
+            this.lineTo(x + bl, y + h);
+            if (bl > 0) { this.arcTo(x, y + h, x, y + h - bl, bl); }
+            else         { this.lineTo(x, y + h); }
+            this.lineTo(x, y + tl);
+            if (tl > 0) { this.arcTo(x, y, x + tl, y, tl); }
+            else         { this.lineTo(x, y); }
+            this.closePath();
+        };
+
 
         /**
          * adds a rectangle element
@@ -1685,6 +1735,45 @@
         RendererSVG.prototype.clear = function () {
             p5.Renderer2D.prototype.clear.call(this);
             this.drawingContext.__clearCanvas();
+        };
+        /**
+         * Override p5.Renderer2D.prototype.rect so that simple (non-rounded)
+         * rectangles are drawn via fillRect / strokeRect on the SVG context
+         * rather than through the path-command pipeline.  This guarantees
+         * correct output regardless of which internal canvas API p5.js uses
+         * (ctx.rect, ctx.roundRect, etc.).
+         *
+         * p5.js 1.x passes args as a single array: [x, y, w, h, tl, tr, br, bl]
+         * p5.js 2.x may pass individual parameters — we handle both.
+         */
+        RendererSVG.prototype.rect = function (args) {
+            var x, y, w, h, tl, tr, br, bl;
+            if (Array.isArray(args)) {
+                x = args[0]; y = args[1]; w = args[2]; h = args[3];
+                tl = args[4]; tr = args[5]; br = args[6]; bl = args[7];
+            } else {
+                // Individual-parameter fallback
+                x = args;
+                y  = arguments[1]; w  = arguments[2]; h  = arguments[3];
+                tl = arguments[4]; tr = arguments[5]; br = arguments[6]; bl = arguments[7];
+            }
+            if (!this._doFill && !this._doStroke) { return; }
+            var hasRound = (tl !== undefined && tl !== 0) ||
+                           (tr !== undefined && tr !== 0) ||
+                           (br !== undefined && br !== 0) ||
+                           (bl !== undefined && bl !== 0);
+            var ctx = this.drawingContext;
+            if (hasRound) {
+                // For rounded corners use the path pipeline (roundRect is now defined)
+                if (!this._clipping) { ctx.beginPath(); }
+                ctx.roundRect(x, y, w, h, [tl || 0, tr || 0, br || 0, bl || 0]);
+                if (!this._clipping && this._doFill)   { ctx.fill(); }
+                if (!this._clipping && this._doStroke) { ctx.stroke(); }
+            } else {
+                // Plain rect — use fillRect / strokeRect directly for reliability
+                if (this._doFill)   { ctx.fillRect(x, y, w, h); }
+                if (this._doStroke) { ctx.strokeRect(x, y, w, h); }
+            }
         };
         /**
          * Append a element to current SVG Graphics
