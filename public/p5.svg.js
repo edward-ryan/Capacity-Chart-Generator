@@ -1656,7 +1656,14 @@
                 // note that at first this.width and this.height is undefined
                 this.drawingContext.__clearCanvas();
             }
-            p5.Renderer2D.prototype.resize.call(this, w, h);
+            // Do NOT call p5.Renderer2D.prototype.resize — it accesses
+            // this._pInst._pixelDensity which crashes with the proxy wrapper
+            // used during hidden-instance SVG generation. SVG always renders
+            // at pixel density 1, so set dimensions directly.
+            this.width = w;
+            this.height = h;
+            this.elt.width = w;
+            this.elt.height = h;
             // For scale, crop
             // see also: http://sarasoueidan.com/blog/svg-coordinate-systems/
             this.svg.setAttribute('viewBox', [0, 0, w, h].join(' '));
