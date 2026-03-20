@@ -628,71 +628,265 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
     } catch (e) { console.error("Draw Loop Error:", e); }
   };
 
-  // Spins up a hidden p5 SVG-renderer instance, draws the chart once, and
-  // resolves with the serialized SVG XML string (or '' on failure).
+  // Builds a lightweight mock p5 object that renders directly to an SVG
+  // element instead of a canvas. The same drawChart functions are passed this
+  // mock so every shape/text call produces proper SVG vector elements.
+  const buildSVGMockP5 = (svgWidth: number, svgHeight: number) => {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svgEl = document.createElementNS(NS, 'svg') as SVGSVGElement;
+    svgEl.setAttribute('width', String(svgWidth));
+    svgEl.setAttribute('height', String(svgHeight));
+    svgEl.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    svgEl.setAttribute('xmlns', NS);
+
+    // Hidden canvas used only for textWidth measurements.
+    const mc = document.createElement('canvas');
+    const mctx = mc.getContext('2d')!;
+
+    // ── Drawing state ──────────────────────────────────────────────────────
+    let _fill: string | null = '#000000';
+    let _stroke: string | null = '#000000';
+    let _sw = 1;
+    let _fontSize = 12;
+    let _fontFamily = 'sans-serif';
+    let _fontWeight = 'normal';
+    let _fontStyle = 'normal';
+    let _textHAlign = 'left';
+    let _textVAlign = 'alphabetic';
+    let _textLeading = 0;
+    let _pathCmds: string[] = [];
+
+    // Transform stack (each entry is a DOMMatrix).
+    interface SavedState {
+      fill: string | null; stroke: string | null; sw: number;
+      fontSize: number; fontFamily: string; fontWeight: string; fontStyle: string;
+      textHAlign: string; textVAlign: string; textLeading: number;
+      matrix: DOMMatrix;
+    }
+    const stateStack: SavedState[] = [];
+    let _matrix = new DOMMatrix([1, 0, 0, 1, 0, 0]);
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    const mkEl = (tag: string, attrs: Record<string, string | number | undefined | null>) => {
+      const el = document.createElementNS(NS, tag) as SVGElement;
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v !== undefined && v !== null) el.setAttribute(k, String(v));
+      }
+      return el;
+    };
+
+    const appendEl = (el: SVGElement) => {
+      const { a, b, c, d, e, f } = _matrix;
+      const isIdentity = a === 1 && b === 0 && c === 0 && d === 1 && e === 0 && f === 0;
+      if (!isIdentity) el.setAttribute('transform', `matrix(${a} ${b} ${c} ${d} ${e} ${f})`);
+      svgEl.appendChild(el);
+    };
+
+    const colorStr = (c: string | number | null): string => {
+      if (c === null) return 'none';
+      if (typeof c === 'number') return `rgb(${c},${c},${c})`;
+      return c;
+    };
+
+    const syncMeasureFont = () => {
+      mctx.font = `${_fontStyle} ${_fontWeight} ${_fontSize}px '${_fontFamily}'`;
+    };
+
+    const svgAnchor = () =>
+      _textHAlign === 'center' ? 'middle' : (_textHAlign === 'right' || _textHAlign === 'end') ? 'end' : 'start';
+
+    const svgBaseline = () => {
+      if (_textVAlign === 'center' || _textVAlign === 'middle') return 'central';
+      if (_textVAlign === 'top') return 'hanging';
+      if (_textVAlign === 'bottom') return 'text-after-edge';
+      return 'alphabetic';
+    };
+
+    // Simple word-wrap for the box form of p.text().
+    const wrapToLines = (str: string, maxW: number): string[] => {
+      const words = str.split(' ');
+      const lines: string[] = [];
+      let line = '';
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word;
+        if (mctx.measureText(test).width > maxW && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      }
+      if (line) lines.push(line);
+      return lines.length ? lines : [''];
+    };
+
+    const CLOSE = 'close';
+
+    // ── Mock p5 object ─────────────────────────────────────────────────────
+    const p: any = {
+      // Fake renderer guard used by drawChart guards
+      _renderer: true,
+      width: svgWidth, height: svgHeight,
+
+      // Constants
+      CENTER: 'center', LEFT: 'left', RIGHT: 'right',
+      TOP: 'top', BOTTOM: 'bottom', BASELINE: 'alphabetic',
+      BOLD: 'bold', NORMAL: 'normal', ITALIC: 'italic',
+      CLOSE,
+      TWO_PI: Math.PI * 2, HALF_PI: Math.PI / 2, QUARTER_PI: Math.PI / 4, PI: Math.PI,
+
+      // Math helpers
+      sin: Math.sin, cos: Math.cos, atan2: Math.atan2, abs: Math.abs,
+      min: Math.min, max: Math.max, sqrt: Math.sqrt,
+      radians: (deg: number) => deg * Math.PI / 180,
+
+      // Background
+      background: (color: string | number) => {
+        svgEl.appendChild(mkEl('rect', { x: 0, y: 0, width: svgWidth, height: svgHeight, fill: colorStr(color) }));
+      },
+
+      // Fill / stroke state
+      fill: (color: string | number) => { _fill = colorStr(color); },
+      noFill: () => { _fill = null; },
+      stroke: (color: string | number) => { _stroke = colorStr(color); },
+      noStroke: () => { _stroke = null; },
+      strokeWeight: (w: number) => { _sw = w; },
+
+      // Primitives
+      line: (x1: number, y1: number, x2: number, y2: number) => {
+        appendEl(mkEl('line', {
+          x1, y1, x2, y2,
+          stroke: _stroke ?? 'none',
+          'stroke-width': _stroke ? _sw : undefined,
+          fill: 'none',
+        }));
+      },
+
+      rect: (x: number, y: number, w: number, h: number) => {
+        appendEl(mkEl('rect', {
+          x, y, width: w, height: h,
+          fill: _fill ?? 'none',
+          stroke: _stroke ?? 'none',
+          'stroke-width': _stroke ? _sw : undefined,
+        }));
+      },
+
+      ellipse: (cx: number, cy: number, w: number, h: number) => {
+        appendEl(mkEl('ellipse', {
+          cx, cy, rx: w / 2, ry: h / 2,
+          fill: _fill ?? 'none',
+          stroke: _stroke ?? 'none',
+          'stroke-width': _stroke ? _sw : undefined,
+        }));
+      },
+
+      // Custom shapes
+      beginShape: () => { _pathCmds = []; },
+      vertex: (x: number, y: number) => {
+        _pathCmds.push(_pathCmds.length === 0 ? `M ${x} ${y}` : `L ${x} ${y}`);
+      },
+      endShape: (mode?: string) => {
+        if (mode === CLOSE) _pathCmds.push('Z');
+        appendEl(mkEl('path', {
+          d: _pathCmds.join(' '),
+          fill: _fill ?? 'none',
+          stroke: _stroke ?? 'none',
+          'stroke-width': _stroke ? _sw : undefined,
+        }));
+        _pathCmds = [];
+      },
+
+      // Text state
+      textFont: (name: string) => { _fontFamily = name; syncMeasureFont(); },
+      textSize: (size: number) => { _fontSize = size; syncMeasureFont(); },
+      textStyle: (style: string) => {
+        _fontWeight = (style === 'bold' || style === 'BOLD') ? 'bold' : 'normal';
+        syncMeasureFont();
+      },
+      textAlign: (h: string, v?: string) => { _textHAlign = h; if (v !== undefined) _textVAlign = v; },
+      textLeading: (n: number) => { _textLeading = n; },
+      textWidth: (str: string) => { syncMeasureFont(); return mctx.measureText(str).width; },
+
+      text: (str: string | number, x: number, y: number, maxW?: number, _maxH?: number) => {
+        const s = String(str);
+        syncMeasureFont();
+        const anchor = svgAnchor();
+        const baseline = svgBaseline();
+        const fontAttrs = {
+          'font-family': `'${_fontFamily}'`,
+          'font-size': _fontSize,
+          'font-weight': _fontWeight,
+          'font-style': _fontStyle,
+          fill: _fill ?? 'none',
+          stroke: 'none',
+          'text-anchor': anchor,
+        };
+
+        if (typeof maxW === 'number') {
+          // Box text: adjust x for alignment within the box, wrap lines.
+          let textX = x;
+          if (_textHAlign === 'center') textX = x + maxW / 2;
+          else if (_textHAlign === 'right' || _textHAlign === 'end') textX = x + maxW;
+          const lines = wrapToLines(s, maxW);
+          const lineH = _textLeading || _fontSize * 1.2;
+          lines.forEach((line, i) => {
+            const el = mkEl('text', { ...fontAttrs, x: textX, y: y + i * lineH, 'dominant-baseline': 'hanging' });
+            el.textContent = line;
+            appendEl(el);
+          });
+        } else {
+          const el = mkEl('text', { ...fontAttrs, x, y, 'dominant-baseline': baseline });
+          el.textContent = s;
+          appendEl(el);
+        }
+      },
+
+      // Transform stack
+      push: () => {
+        stateStack.push({
+          fill: _fill, stroke: _stroke, sw: _sw,
+          fontSize: _fontSize, fontFamily: _fontFamily,
+          fontWeight: _fontWeight, fontStyle: _fontStyle,
+          textHAlign: _textHAlign, textVAlign: _textVAlign,
+          textLeading: _textLeading,
+          matrix: new DOMMatrix([_matrix.a, _matrix.b, _matrix.c, _matrix.d, _matrix.e, _matrix.f]),
+        });
+      },
+      pop: () => {
+        const s = stateStack.pop();
+        if (!s) return;
+        _fill = s.fill; _stroke = s.stroke; _sw = s.sw;
+        _fontSize = s.fontSize; _fontFamily = s.fontFamily;
+        _fontWeight = s.fontWeight; _fontStyle = s.fontStyle;
+        _textHAlign = s.textHAlign; _textVAlign = s.textVAlign;
+        _textLeading = s.textLeading;
+        _matrix = s.matrix;
+        syncMeasureFont();
+      },
+      translate: (x: number, y: number) => { _matrix = _matrix.translate(x, y); },
+      rotate: (angle: number) => { _matrix = _matrix.rotate(angle * 180 / Math.PI); },
+
+      getSVGElement: () => svgEl,
+    };
+
+    return p;
+  };
+
+  // Generates a full vector SVG string of the current chart by running the
+  // drawing functions against a lightweight SVG mock instead of a canvas.
   const generateSvgString = (): Promise<string> => {
     return new Promise((resolve) => {
-      const { width, height } = getCanvasDimensions(settingsRef.current);
-      const hiddenDiv = document.createElement('div');
-      hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
-      document.body.appendChild(hiddenDiv);
-
-      const cleanup = (inst: any) => { try { inst.remove(); } catch (_) {} if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv); };
-
       try {
-        if (!p5 || !(p5 as any).prototype?.SVG) {
-          console.error('[SVG] p5.js-svg not loaded — p5.SVG constant missing');
-          if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
-          resolve('');
-          return;
-        }
-
-        new p5((p: any) => {
-          p.setup = () => {
-            // Set _pixelDensity=1 before createCanvas so all internal p5
-            // renderer methods that access _pixelDensity work correctly.
-            // SVG output is resolution-independent so density 1 is correct.
-            p._pixelDensity = 1;
-            p.createCanvas(width, height, p.SVG);
-            p.noLoop();
-
-            // Verify we actually got an SVG renderer, not a fallback canvas.
-            const svgEl = p._renderer?.svg;
-            if (!svgEl || svgEl.tagName?.toLowerCase() !== 'svg') {
-              console.error('[SVG] p5-svg failed: renderer has no <svg> element — got', svgEl?.tagName ?? p._renderer?.elt?.tagName ?? 'nothing');
-              cleanup(p);
-              resolve('');
-              return;
-            }
-
-            try {
-              drawChart(p, settingsRef.current);
-            } catch (drawErr) {
-              console.error('[SVG] drawChart threw:', drawErr);
-            }
-            // Log SVG element count for diagnostics
-            const allEls = svgEl.querySelectorAll('*');
-            console.log('[SVG] elements after draw:', allEls.length, '| w/h:', p.width, p.height, '| renderer w/h:', p._renderer?.width, p._renderer?.height);
-            if (allEls.length < 5) {
-              console.warn('[SVG] very few elements — SVG may be blank. First 500 chars:', svgEl.outerHTML.substring(0, 500));
-            }
-            // SVG drawing ops are synchronous — serialize immediately.
-            try {
-              let s = new XMLSerializer().serializeToString(svgEl);
-              if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
-                s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-              cleanup(p);
-              resolve(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${s}`);
-            } catch (e) {
-              console.error('[SVG] serialize error:', e);
-              cleanup(p);
-              resolve('');
-            }
-          };
-        }, hiddenDiv);
+        const { width, height } = getCanvasDimensions(settingsRef.current);
+        const p = buildSVGMockP5(width, height);
+        drawChart(p, settingsRef.current);
+        const svgElement = p.getSVGElement();
+        let s = new XMLSerializer().serializeToString(svgElement);
+        if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
+          s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+        resolve(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${s}`);
       } catch (e) {
-        console.error('[SVG] p5 constructor threw:', e);
-        if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+        console.error('[SVG] generateSvgString error:', e);
         resolve('');
       }
     });
