@@ -637,26 +637,41 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       hiddenDiv.style.cssText = 'position:fixed;top:-9999px;left:-9999px;visibility:hidden;';
       document.body.appendChild(hiddenDiv);
 
+      const cleanup = (inst: any) => { try { inst.remove(); } catch (_) {} if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv); };
+
       try {
+        if (!p5 || !(p5 as any).prototype?.SVG) {
+          console.error('[SVG] p5.js-svg not loaded — p5.SVG constant missing');
+          if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+          resolve('');
+          return;
+        }
+
         new p5((p: any) => {
           p.setup = () => {
             p.createCanvas(width, height, p.SVG);
             p.noLoop();
+
+            // Verify we actually got an SVG renderer, not a fallback canvas.
+            const svgEl = p._renderer?.svg;
+            if (!svgEl || svgEl.tagName?.toLowerCase() !== 'svg') {
+              console.error('[SVG] p5-svg failed: renderer has no <svg> element — got', svgEl?.tagName ?? p._renderer?.elt?.tagName ?? 'nothing');
+              cleanup(p);
+              resolve('');
+              return;
+            }
+
             drawChart(p, settingsRef.current);
             // SVG drawing ops are synchronous — serialize immediately.
             try {
-              const svgEl = p._renderer?.svg;
-              if (!svgEl) { p.remove(); if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv); resolve(''); return; }
               let s = new XMLSerializer().serializeToString(svgEl);
               if (!s.includes('xmlns="http://www.w3.org/2000/svg"'))
                 s = s.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-              p.remove();
-              if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+              cleanup(p);
               resolve(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n${s}`);
             } catch (e) {
               console.error('[SVG] serialize error:', e);
-              try { p.remove(); } catch (_) {}
-              if (hiddenDiv.parentNode) document.body.removeChild(hiddenDiv);
+              cleanup(p);
               resolve('');
             }
           };
