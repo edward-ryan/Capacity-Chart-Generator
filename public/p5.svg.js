@@ -1626,12 +1626,6 @@
                 }
             });
             p5.Renderer2D.call(this, elt, pInstProxy, isMainCanvas);
-            // p5.js 1.9 changed when drawingContext is assigned during init.
-            // Explicitly set it here so all subsequent calls (resize,
-            // _applyDefaults, etc.) always have a valid context.
-            if (!this.drawingContext) {
-                this.drawingContext = elt.getContext('2d');
-            }
             this.isSVG = true;
             this.svg = svg;
             return this;
@@ -1643,13 +1637,6 @@
         };
         RendererSVG.prototype.resize = function (w, h) {
             if (!w || !h) {
-                return;
-            }
-            // Guard: in p5 1.9+ the base-class constructor calls resize() via
-            // the prototype chain before RendererSVG has set up drawingContext,
-            // svg, or _pInst.  Bail out entirely — createCanvas() issues an
-            // explicit resize() call after construction, so nothing is lost.
-            if (!this.drawingContext) {
                 return;
             }
             if (this.width !== w || this.height !== h) {
