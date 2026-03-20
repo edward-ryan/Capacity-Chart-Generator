@@ -1657,11 +1657,20 @@
                 this.drawingContext.__clearCanvas();
             }
             // Do NOT call p5.Renderer2D.prototype.resize — it accesses
-            // this._pInst._pixelDensity which crashes with the proxy wrapper
-            // used during hidden-instance SVG generation. SVG dimensions are
-            // controlled entirely by SVG attributes, not the fake canvas wrapper.
+            // this._pInst._pixelDensity in a way that crashes with the proxy
+            // wrapper used during hidden-instance SVG generation.
+            // Set all dimensions manually instead.
             this.width = w;
             this.height = h;
+            // Keep the SVG context's internal width/height in sync so that
+            // fillRect(0,0,w,h) comparisons work correctly (e.g. background()).
+            if (this.drawingContext) {
+                this.drawingContext.width = w;
+                this.drawingContext.height = h;
+            }
+            // Update the SVG element's width/height attributes and viewBox.
+            this.svg.setAttribute('width', w);
+            this.svg.setAttribute('height', h);
             // For scale, crop
             // see also: http://sarasoueidan.com/blog/svg-coordinate-systems/
             this.svg.setAttribute('viewBox', [0, 0, w, h].join(' '));
