@@ -1639,16 +1639,18 @@
             if (!w || !h) {
                 return;
             }
+            // Guard: in p5 1.9+ the base-class constructor calls resize() via
+            // the prototype chain before RendererSVG has set up drawingContext,
+            // svg, or _pInst.  Bail out entirely — createCanvas() issues an
+            // explicit resize() call after construction, so nothing is lost.
+            if (!this.drawingContext) {
+                return;
+            }
             if (this.width !== w || this.height !== h) {
                 // canvas will be cleared if its size changed
                 // so, we do same thing for SVG
                 // note that at first this.width and this.height is undefined
-                // Guard: in p5 1.9+, resize() is called during base-class
-                // constructor init before drawingContext is assigned. Skip
-                // the clear if drawingContext is not yet set.
-                if (this.drawingContext) {
-                    this.drawingContext.__clearCanvas();
-                }
+                this.drawingContext.__clearCanvas();
             }
             p5.Renderer2D.prototype.resize.call(this, w, h);
             // For scale, crop
