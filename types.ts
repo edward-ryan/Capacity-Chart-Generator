@@ -33,6 +33,8 @@ export interface ChartSettings {
   customHeight?: number;
   backgroundColor: string;
   contentColor: string;
+  // Bar specific
+  usesDollarUnit?: boolean;
   // Donut specific
   innerRadius?: number;
   outerRadius?: number;

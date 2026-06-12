@@ -323,18 +323,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
                 </div>
                 <div className="flex items-center justify-between border-t border-[#2e2e33] pt-3">
                   <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Angled X-Labels</span>
-                  <EyeIcon active={settings.showAngledLabels && !settings.showXAxisLabel} onClick={() => { if (!settings.showXAxisLabel) onUpdate({ showAngledLabels: !settings.showAngledLabels }); }} />
+                  <EyeIcon active={settings.showAngledLabels} onClick={() => onUpdate({ showAngledLabels: !settings.showAngledLabels })} />
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <label className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">X Title</label>
-                    <EyeIcon active={settings.showXAxisLabel} onClick={() => { const newShow = !settings.showXAxisLabel; onUpdate({ showXAxisLabel: newShow, ...(newShow ? { showAngledLabels: false } : {}) }); }} />
+                    <EyeIcon active={settings.showXAxisLabel} onClick={() => onUpdate({ showXAxisLabel: !settings.showXAxisLabel })} />
                   </div>
                   <input type="text" className="w-full p-2.5 bg-zinc-800 border border-[#2e2e33] rounded font-mono text-[11px] text-[#e4e4e7] focus:outline-none focus:ring-1 focus:ring-[#BFB9DA] uppercase" value={settings.xAxisLabel} onChange={(e) => onUpdate({ xAxisLabel: e.target.value })} placeholder="X AXIS LABEL" />
                 </div>
                 <div className="flex items-center justify-between border-t border-[#2e2e33] pt-3">
                   <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Bar Values</span>
                   <EyeIcon active={settings.showBarValues} onClick={() => onUpdate({ showBarValues: !settings.showBarValues })} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Add $ Unit</span>
+                  <button
+                    role="switch"
+                    aria-checked={!!settings.usesDollarUnit}
+                    onClick={() => onUpdate({ usesDollarUnit: !settings.usesDollarUnit })}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.usesDollarUnit ? 'bg-[#BFB9DA]' : 'bg-zinc-700'}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${settings.usesDollarUnit ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
                 </div>
               </div>
             )}
