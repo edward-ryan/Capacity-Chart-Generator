@@ -8,6 +8,22 @@ interface ChartPreviewProps {
   settings: ChartSettings;
 }
 
+const formatBarNumber = (val: number): string => {
+  if (val >= 1_000_000_000) {
+    const n = val / 1_000_000_000;
+    return (Number.isInteger(n) ? n.toString() : n.toFixed(1)) + 'B';
+  }
+  if (val >= 1_000_000) {
+    const n = val / 1_000_000;
+    return (Number.isInteger(n) ? n.toString() : n.toFixed(1)) + 'M';
+  }
+  if (val >= 1_000) {
+    const n = val / 1_000;
+    return (Number.isInteger(n) ? n.toString() : n.toFixed(1)) + 'K';
+  }
+  return val.toString();
+};
+
 const getCanvasDimensions = (settings: ChartSettings) => {
   switch (settings.canvasType) {
     case 'vertical': return { width: 1500, height: 2666 };
@@ -553,9 +569,9 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
 
       const lineEndBuffer = 15;
       const uniformLineLen = maxXTextWidth + textOffsetFromAxis + lineEndBuffer;
-      let axisY = (cur.showAngledLabels && !cur.showXAxisLabel) ? (labelBottomTipY - 2 - (uniformLineLen * p.sin(p.QUARTER_PI))) : (labelBottomTipY - 100);
+      let axisY = cur.showAngledLabels ? (labelBottomTipY - 2 - (uniformLineLen * p.sin(p.QUARTER_PI))) : (labelBottomTipY - 100);
       const availableHeight = axisY - barCeilingY;
-      const diagHorizontal = (cur.showAngledLabels && !cur.showXAxisLabel) ? (uniformLineLen * p.cos(p.QUARTER_PI)) : 0;
+      const diagHorizontal = cur.showAngledLabels ? (uniformLineLen * p.cos(p.QUARTER_PI)) : 0;
       const chartRightLimit = curW - brandMargin - diagHorizontal;
       const availableWidth = chartRightLimit - chartLeftStart;
       const n = (cur.data || []).length;
@@ -590,7 +606,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         p.line(chartLeftStart, yPos, chartLeftStart + yAxisIndicatorW, yPos);
         if (cur.showYAxisLabels) {
           const shouldShowLabel = (cur.yAxisLabelMode === 'startEnd') ? (i === 0 || i === finalNumSteps) : (i % 2 === 0);
-          if (shouldShowLabel) { p.noStroke(); p.fill(fg); p.text(val.toString(), labelRightEdgeX, yPos - 1); }
+          if (shouldShowLabel) { p.noStroke(); p.fill(fg); p.text((cur.usesDollarUnit ? '$' : '') + formatBarNumber(val), labelRightEdgeX, yPos - 1); }
         }
       }
 
@@ -608,9 +624,9 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           p.rect(currentX, axisY - h, barW, h);
           if (cur.showBarValues) {
             p.push(); p.fill(useHighColor ? highlightColor : fg); p.noStroke(); p.textFont('Basel Grotesk Mono'); p.textSize(barValueSize); p.textAlign(p.CENTER, p.BOTTOM);
-            p.text(item.value.toString(), currentX + barW / 2, axisY - h - 15); p.pop();
+            p.text((cur.usesDollarUnit ? '$' : '') + formatBarNumber(item.value), currentX + barW / 2, axisY - h - 15); p.pop();
           }
-          if (cur.showAngledLabels && !cur.showXAxisLabel) {
+          if (cur.showAngledLabels) {
             const startX = currentX; const startY = axisY + 2; 
             p.push(); p.stroke(useHighColor ? highlightColor : fg); p.strokeWeight(1);
             const angle = p.QUARTER_PI;
@@ -623,7 +639,11 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           }
           currentX += barW + gapW;
         });
-        if (cur.showXAxisLabel && cur.xAxisLabel) { p.noStroke(); p.fill(fg); p.textFont('Basel Grotesk Mono'); p.textSize(xAxisTitleSize); p.textAlign(p.LEFT, p.TOP); p.text(cur.xAxisLabel.toUpperCase(), chartLeftStart, axisY + 40); }
+        if (cur.showXAxisLabel && cur.xAxisLabel) {
+          const xTitleY = cur.showAngledLabels ? (labelBottomTipY + 20) : (axisY + 40);
+          p.noStroke(); p.fill(fg); p.textFont('Basel Grotesk Mono'); p.textSize(xAxisTitleSize); p.textAlign(p.LEFT, p.TOP);
+          p.text(cur.xAxisLabel.toUpperCase(), chartLeftStart, xTitleY, 350, 200);
+        }
       }
     } catch (e) { console.error("Draw Loop Error:", e); }
   };
