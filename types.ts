@@ -34,7 +34,7 @@ export interface ChartSettings {
   backgroundColor: string;
   contentColor: string;
   // Bar specific
-  usesDollarUnit?: boolean;
+  unitType?: 'none' | 'dollar' | 'percent';
   // Donut specific
   innerRadius?: number;
   outerRadius?: number;

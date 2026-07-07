@@ -523,10 +523,15 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
       };
 
       const rawMax = Math.max(...(cur.data || []).map(d => d.value), 0.001);
+      const allBelowHundred = cur.unitType === 'percent' && rawMax >= 60 && rawMax <= 100;
       const yStep = calculateNiceStep(rawMax, cur.yAxisDensity);
       const rawNumSteps = Math.ceil(rawMax / yStep);
-      const finalNumSteps = rawNumSteps % 2 === 0 ? rawNumSteps : rawNumSteps + 1;
-      const roundedMax = finalNumSteps * yStep;
+      let finalNumSteps = rawNumSteps % 2 === 0 ? rawNumSteps : rawNumSteps + 1;
+      let roundedMax = finalNumSteps * yStep;
+      if (allBelowHundred && roundedMax > 100) {
+        finalNumSteps = Math.floor(100 / yStep);
+        roundedMax = 100;
+      }
 
       p.textSize(yLabelSize);
       p.textFont('Basel Grotesk Mono');
@@ -551,7 +556,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         topCursorY += cur.title.split('\n').length * titleSize * 1.1 + 48;
       }
       if (cur.showCaption && cur.caption) {
-        topCursorY += cur.caption.split('\n').length * captionSize * 1.1 + 48;
+        topCursorY += cur.caption.split('\n').length * captionSize * 1.1 + 53;
       }
 
       const barCeilingY = Math.max(150, topCursorY);
@@ -606,7 +611,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
         p.line(chartLeftStart, yPos, chartLeftStart + yAxisIndicatorW, yPos);
         if (cur.showYAxisLabels) {
           const shouldShowLabel = (cur.yAxisLabelMode === 'startEnd') ? (i === 0 || i === finalNumSteps) : (i % 2 === 0);
-          if (shouldShowLabel) { p.noStroke(); p.fill(fg); p.text((cur.usesDollarUnit ? '$' : '') + formatBarNumber(val), labelRightEdgeX, yPos - 1); }
+          if (shouldShowLabel) { const unit = cur.unitType ?? 'none'; p.noStroke(); p.fill(fg); p.text(unit === 'dollar' ? '$' + formatBarNumber(val) : unit === 'percent' ? val.toString() + '%' : formatBarNumber(val), labelRightEdgeX, yPos - 1); }
         }
       }
 
@@ -624,7 +629,7 @@ export const ChartPreview: React.FC<ChartPreviewProps> = ({ settings }) => {
           p.rect(currentX, axisY - h, barW, h);
           if (cur.showBarValues) {
             p.push(); p.fill(useHighColor ? highlightColor : fg); p.noStroke(); p.textFont('Basel Grotesk Mono'); p.textSize(barValueSize); p.textAlign(p.CENTER, p.BOTTOM);
-            p.text((cur.usesDollarUnit ? '$' : '') + formatBarNumber(item.value), currentX + barW / 2, axisY - h - 15); p.pop();
+            const unit = cur.unitType ?? 'none'; p.text(unit === 'dollar' ? '$' + formatBarNumber(item.value) : unit === 'percent' ? item.value.toString() + '%' : formatBarNumber(item.value), currentX + barW / 2, axisY - h - 15); p.pop();
           }
           if (cur.showAngledLabels) {
             const startX = currentX; const startY = axisY + 2; 

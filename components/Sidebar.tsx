@@ -300,7 +300,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
             <CollapsibleHeader label="Axes & Labels" isCollapsed={collapsed.axes} onToggle={() => toggleSection('axes')} />
             {!collapsed.axes && (
               <div className="p-3 space-y-4 animate-in fade-in duration-200">
-                <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Bar Values</span>
+                  <EyeIcon active={settings.showBarValues} onClick={() => onUpdate({ showBarValues: !settings.showBarValues })} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Add Unit</label>
+                  <div className="flex bg-black/20 border border-[#2e2e33] rounded-md p-1 gap-1">
+                    {(['none', 'dollar', 'percent'] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => onUpdate({ unitType: opt })}
+                        className={`flex-1 py-1.5 font-mono text-[10px] uppercase tracking-widest transition-colors rounded ${(settings.unitType ?? 'none') === opt ? 'bg-[#BFB9DA]/20 text-[#BFB9DA]' : 'text-[#a1a1aa] hover:text-[#e4e4e7]'}`}
+                      >
+                        {opt === 'none' ? 'None' : opt === 'dollar' ? '$ Dollar' : '% Percent'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="border-t border-[#2e2e33] pt-3">
                   <label className="block font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide mb-1.5">Y Axis Density: <span className="text-[#e4e4e7]">{densityLabels[settings.yAxisDensity]}</span></label>
                   <input type="range" min="0" max="2" step="1" className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer" style={{ accentColor: '#BFB9DA' }} value={settings.yAxisDensity} onChange={(e) => onUpdate({ yAxisDensity: parseInt(e.target.value) })} />
                 </div>
@@ -331,21 +349,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ settings, onUpdate, onDownload
                     <EyeIcon active={settings.showXAxisLabel} onClick={() => onUpdate({ showXAxisLabel: !settings.showXAxisLabel })} />
                   </div>
                   <input type="text" className="w-full p-2.5 bg-zinc-800 border border-[#2e2e33] rounded font-mono text-[11px] text-[#e4e4e7] focus:outline-none focus:ring-1 focus:ring-[#BFB9DA] uppercase" value={settings.xAxisLabel} onChange={(e) => onUpdate({ xAxisLabel: e.target.value })} placeholder="X AXIS LABEL" />
-                </div>
-                <div className="flex items-center justify-between border-t border-[#2e2e33] pt-3">
-                  <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Bar Values</span>
-                  <EyeIcon active={settings.showBarValues} onClick={() => onUpdate({ showBarValues: !settings.showBarValues })} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-[#a1a1aa] uppercase tracking-wide">Add $ Unit</span>
-                  <button
-                    role="switch"
-                    aria-checked={!!settings.usesDollarUnit}
-                    onClick={() => onUpdate({ usesDollarUnit: !settings.usesDollarUnit })}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.usesDollarUnit ? 'bg-[#BFB9DA]' : 'bg-zinc-700'}`}
-                  >
-                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${settings.usesDollarUnit ? 'translate-x-4' : 'translate-x-0'}`} />
-                  </button>
                 </div>
               </div>
             )}
